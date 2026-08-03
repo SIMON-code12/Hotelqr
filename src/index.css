@@ -1,0 +1,305 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Sora:wght@400;500;600;700&display=swap');
+
+:root {
+  /* ── Legacy tokens (kept for backward-compat) ── */
+  --ink-900: #242220;
+  --ink-700: #332F2B;
+  --chalk-100: #F4EFE6;
+  --chalk-400: #B9B2A6;
+  --gold-500: #D9A62E;
+  --gold-700: #A97F1E;
+  --brick-500: #B23A2E;
+  --sage-500: #7A9471;
+  --line-15: rgba(244, 239, 230, 0.12);
+
+  /* ── Type scale ── */
+  --font-display: "Fraunces", serif;
+  --font-body: "Inter", sans-serif;
+  --font-ticket: "JetBrains Mono", monospace;
+  --cust-font-display: "Sora", sans-serif;
+  --cust-font-body: "Inter", sans-serif;
+
+  --text-display: 2rem;
+  --text-h1: 1.5rem;
+  --text-h2: 1.25rem;
+  --text-body: 1rem;
+  --text-small: 0.875rem;
+  --text-caption: 0.75rem;
+  --text-hero: 1.75rem;
+  --cust-text-h1: 1.375rem;
+  --cust-text-h2: 1.125rem;
+  --cust-text-price: 1.25rem;
+  --cust-text-body: 1rem;
+  --cust-text-meta: 0.875rem;
+
+  /* ── Spacing ── */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --cust-space-2: 8px;
+  --cust-space-3: 12px;
+  --cust-space-4: 16px;
+  --cust-space-6: 24px;
+  --cust-space-8: 32px;
+
+  /* ── Shape ── */
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --radius-pill: 999px;
+  --radius-card: 20px;
+  --radius-button: 16px;
+
+  /* ── Unified Colour System ── */
+  --bg-base: #1C1410;
+  --surface: #2B1F17;
+  --surface-raised: #39291E;
+  --surface-overlay: #4A3425;
+
+  --text-primary: #FFFFFF;
+  --text-secondary: #B9AA9C;
+  --text-muted: #7A6E65;
+
+  --accent-orange: #FF8A34;
+  --accent-orange-press: #E5722A;
+  --accent-orange-glow: rgba(255, 138, 52, 0.25);
+  --accent-red: #E5484D;
+  --accent-green: #4CAF72;
+  --accent-blue: #4A9ABF;
+  --accent-amber: #D9A62E;
+  --favorite-red: #FF4D6D;
+
+  --border-subtle: rgba(255, 255, 255, 0.07);
+  --border-default: rgba(255, 255, 255, 0.12);
+}
+
+/* ── Reset ── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-body);
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+/* ── Font Utilities ── */
+.font-display { font-family: var(--font-display); }
+.font-body    { font-family: var(--font-body); }
+.font-ticket  { font-family: var(--font-ticket); }
+.font-sora    { font-family: var(--cust-font-display); }
+.font-inter   { font-family: var(--cust-font-body); }
+
+/* ── Scrollbar Hide ── */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* ─────────────────────────────────────────
+   SHARED CARDS
+───────────────────────────────────────── */
+
+/* Customer card */
+.cust-card {
+  background-color: var(--surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+  transition: transform 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
+}
+.cust-card:active { transform: scale(0.98); }
+
+/* Admin / Kitchen generic dark card */
+.admin-card {
+  background: var(--surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.admin-card:hover {
+  border-color: var(--border-default);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+}
+
+/* Stat / metric card with orange left-accent */
+.admin-stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+  border-left: 3px solid var(--accent-orange);
+}
+
+/* Legacy chalk-card alias */
+.chalk-card {
+  background: var(--surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+/* ─────────────────────────────────────────
+   KITCHEN DISPLAY SYSTEM
+───────────────────────────────────────── */
+
+.kitchen-col {
+  background: var(--surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  min-height: 300px;
+}
+
+.kitchen-ticket {
+  background: var(--surface-raised);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+  border-left: 4px solid var(--accent-orange);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.kitchen-ticket.preparing { border-left-color: var(--accent-blue); }
+.kitchen-ticket.ready     { border-left-color: var(--accent-green); }
+
+/* ─────────────────────────────────────────
+   STATUS BADGES
+───────────────────────────────────────── */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.badge-new       { background: rgba(255,138,52,0.18);  color: var(--accent-orange); }
+.badge-placed    { background: rgba(217,166,46,0.18);  color: var(--accent-amber); }
+.badge-preparing { background: rgba(74,154,191,0.18);  color: var(--accent-blue); }
+.badge-ready     { background: rgba(76,175,114,0.18);  color: var(--accent-green); }
+.badge-served    { background: rgba(122,148,113,0.18); color: var(--sage-500); }
+.badge-cancelled { background: rgba(229,72,77,0.18);   color: var(--accent-red); }
+.badge-completed { background: rgba(185,170,156,0.12); color: var(--text-secondary); }
+.badge-accepted  { background: rgba(74,154,191,0.18);  color: var(--accent-blue); }
+
+/* ─────────────────────────────────────────
+   CUSTOMER SPECIFIC
+───────────────────────────────────────── */
+
+.cust-glow-bg {
+  background-image: radial-gradient(circle at 80% 0%, #4D2813 0%, #2A170B 40%, #1C1410 75%);
+}
+
+/* iOS Toggle Switch */
+.cust-toggle-track {
+  width: 44px;
+  height: 24px;
+  border-radius: 999px;
+  background-color: rgba(255, 255, 255, 0.15);
+  position: relative;
+  transition: background-color 0.2s ease;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.cust-toggle-track.active { background-color: var(--accent-orange); }
+
+.cust-toggle-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background-color: #FFFFFF;
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  transition: transform 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+.cust-toggle-track.active .cust-toggle-thumb { transform: translateX(20px); }
+
+/* ─────────────────────────────────────────
+   ANIMATIONS
+───────────────────────────────────────── */
+
+@keyframes animatePop {
+  0%   { transform: scale(0.95); opacity: 0; }
+  100% { transform: scale(1);    opacity: 1; }
+}
+.animate-pop {
+  animation: animatePop 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* New ticket orange glow pulse (replaces old yellow flash) */
+@keyframes pulseGlow {
+  0%   { box-shadow: 0 0 0    0   var(--accent-orange-glow); }
+  50%  { box-shadow: 0 0 16px 4px var(--accent-orange-glow); }
+  100% { box-shadow: 0 0 0    0   var(--accent-orange-glow); }
+}
+.animate-ticket-new   { animation: pulseGlow 1.5s ease-in-out 3; }
+.animate-ticket-flash { animation: pulseGlow 1.5s ease-in-out 3; } /* alias */
+
+@keyframes stampPulse {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+.animate-stamp { animation: stampPulse 0.25s ease-out; }
+
+/* ─────────────────────────────────────────
+   LEGACY TICKET PAPER (not shown in new UI)
+───────────────────────────────────────── */
+
+.ticket-paper {
+  background-color: var(--chalk-100);
+  color: var(--ink-900);
+  font-family: var(--font-ticket);
+  position: relative;
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.3);
+}
+.ticket-perforation {
+  position: absolute;
+  top: -8px; left: 0; right: 0; height: 8px;
+  background-image: radial-gradient(circle at 6px -2px, transparent 6px, var(--chalk-100) 6px);
+  background-size: 16px 8px;
+  background-repeat: repeat-x;
+}
+.dot-leader {
+  flex: 1;
+  border-bottom: 1px dashed rgba(36, 34, 32, 0.3);
+  margin: 0 8px;
+  align-self: baseline;
+  position: relative;
+  top: -4px;
+}
+
+/* ─────────────────────────────────────────
+   PRINT (QR code cards)
+───────────────────────────────────────── */
+
+@media print {
+  body * { visibility: hidden; }
+  #printable-qr-card, #printable-qr-card * { visibility: visible; }
+  #printable-qr-card {
+    position: absolute;
+    left: 0; top: 0;
+    width: 100%; margin: 0; padding: 30px;
+    background: #FFFFFF !important;
+    color: #000000 !important;
+  }
+}

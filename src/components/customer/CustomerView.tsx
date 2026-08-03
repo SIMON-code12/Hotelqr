@@ -1,0 +1,927 @@
+import React, { useState, useMemo, useRef, useCallback } from 'react';
+import { useStore } from '../../context/StoreContext';
+import type { MenuItem, OrderStatus } from '../../types';
+import { Search, Plus, SlidersHorizontal, Heart, ShoppingBag, Utensils, Clock, Check, ArrowRight, Minus, Trash2 } from 'lucide-react';
+import { FoodDetailModal } from './FoodDetailModal';
+
+/**
+ * Hook: enables click-and-drag horizontal scrolling for a container.
+ * Also enables smooth touch scrolling on mobile.
+ */
+function useDragScroll() {
+  const ref = useRef<HTMLDivElement>(null);
+  const isDragging = useRef(false);
+  const startX = useRef(0);
+  const scrollLeft = useRef(0);
+
+  const onMouseDown = useCallback((e: React.MouseEvent) => {
+    const el = ref.current;
+    if (!el) return;
+    isDragging.current = true;
+    startX.current = e.pageX - el.offsetLeft;
+    scrollLeft.current = el.scrollLeft;
+    el.style.cursor = 'grabbing';
+    el.style.userSelect = 'none';
+  }, []);
+
+  const onMouseUp = useCallback(() => {
+    isDragging.current = false;
+    const el = ref.current;
+    if (el) {
+      el.style.cursor = 'grab';
+      el.style.userSelect = '';
+    }
+  }, []);
+
+  const onMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!isDragging.current) return;
+    e.preventDefault();
+    const el = ref.current;
+    if (!el) return;
+    const x = e.pageX - el.offsetLeft;
+    const walk = (x - startX.current) * 1.5;
+    el.scrollLeft = scrollLeft.current - walk;
+  }, []);
+
+  const onMouseLeave = useCallback(() => {
+    isDragging.current = false;
+    const el = ref.current;
+    if (el) {
+      el.style.cursor = 'grab';
+      el.style.userSelect = '';
+    }
+  }, []);
+
+  return { ref, onMouseDown, onMouseUp, onMouseMove, onMouseLeave };
+}
+
+const CATEGORIES = [
+  { id: 'All', label: 'All Dishes' },
+  { id: 'Starters', label: 'Starters' },
+  { id: 'Mains', label: 'Mains' },
+  { id: 'Chef Specials', label: 'Chef Specials' },
+  { id: 'Beverages', label: 'Drinks' },
+  { id: 'Desserts', label: 'Desserts' },
+];
+
+export const CustomerView: React.FC = () => {
+  const {
+    menuItems,
+    selectedTableId,
+    setSelectedTableId,
+    tables,
+    addToCart,
+    cart,
+    cartSubtotal,
+    orders,
+    removeFromCart,
+    updateCartQuantity,
+    placeOrder,
+    addToast
+  } = useStore();
+
+  const [activeTab, setActiveTab] = useState<'menu' | 'cart' | 'status'>('menu');
+  const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeItemModal, setActiveItemModal] = useState<MenuItem | null>(null);
+  const [favorites, setFavorites] = useState<Set<string>>(new Set(['dish-1', 'dish-2']));
+  const allDishesSectionRef = useRef<HTMLDivElement>(null);
+  const popularScroll = useDragScroll();
+  
+  // Cart form state
+  const [couponCode, setCouponCode] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState('');
+  const [discountAmount, setDiscountAmount] = useState(0);
+  const [tipAmount, setTipAmount] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const toggleFavorite = (e: React.MouseEvent, dishId: string) => {
+    e.stopPropagation();
+    setFavorites((prev) => {
+      const next = new Set(prev);
+      if (next.has(dishId)) next.delete(dishId);
+      else next.add(dishId);
+      return next;
+    });
+  };
+
+  // Active order for current table
+  const activeOrderForTable = useMemo(() => {
+    return orders.find(
+      (o) => o.table_id === selectedTableId && ['placed', 'accepted', 'preparing', 'ready', 'served'].includes(o.status)
+    );
+  }, [orders, selectedTableId]);
+
+  const filteredDishes = useMemo(() => {
+    return menuItems.filter((item) => {
+      const cat = item.categoryName || (item as any).category;
+      if (selectedCategory !== 'All' && cat !== selectedCategory) return false;
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        return item.name.toLowerCase().includes(q) || item.description.toLowerCase().includes(q);
+      }
+      return true;
+    });
+  }, [menuItems, selectedCategory, searchQuery]);
+
+  const popularDishes = useMemo(() => {
+    return menuItems.filter((item) => item.is_bestseller || (item.rating && item.rating >= 4.8)).slice(0, 5);
+  }, [menuItems]);
+
+  const chefSpecialDish = useMemo(() => {
+    return menuItems.find((item) => item.categoryName === 'Chef Specials') || menuItems[0];
+  }, [menuItems]);
+
+  const totalCartQty = cart.reduce((sum, item) => sum + item.quantity, 0);
+
+  const handleApplyCoupon = () => {
+    const code = couponCode.trim().toUpperCase();
+    if (code === 'SAVOUR20') {
+      setDiscountAmount(cartSubtotal * 0.2);
+      setAppliedCoupon('SAVOUR20');
+      addToast('Coupon applied', '20% discount added to cart', 'success');
+    } else if (code === 'WELCOME10') {
+      setDiscountAmount(Math.min(10, cartSubtotal));
+      setAppliedCoupon('WELCOME10');
+      addToast('Coupon applied', '₹10 off added to cart', 'success');
+    } else {
+      addToast('Invalid promo code', 'Try SAVOUR20 or WELCOME10', 'warning');
+    }
+  };
+
+  const afterDiscount = Math.max(0, cartSubtotal - discountAmount);
+  const tax = afterDiscount * 0.08;
+  const grandTotal = afterDiscount + tax + tipAmount;
+
+  const handleSendToKitchen = () => {
+    if (isSubmitting || cart.length === 0) return;
+    setIsSubmitting(true);
+
+    try {
+      placeOrder('', appliedCoupon || undefined, tipAmount);
+      setActiveTab('status');
+    } catch (err: any) {
+      addToast("Couldn't reach kitchen", err.message || 'Please try again', 'warning');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div style={{ background: 'var(--bg-base)', minHeight: '100vh', color: 'var(--text-primary)', paddingBottom: 100 }} className="cust-glow-bg font-inter">
+      <div style={{ maxWidth: 480, margin: '0 auto', padding: '0 16px' }}>
+
+        {/* Top Header / Table badge */}
+        <div style={{ paddingTop: 20, paddingBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--accent-orange)', background: 'rgba(255,138,52,0.15)', padding: '3px 10px', borderRadius: 'var(--radius-pill)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Table {selectedTableId}
+              </span>
+              <select
+                value={selectedTableId}
+                onChange={(e) => setSelectedTableId(e.target.value)}
+                style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', fontSize: '0.75rem', cursor: 'pointer', outline: 'none' }}
+              >
+                {tables.map((t) => (
+                  <option key={t.id} value={t.id} style={{ background: '#2B1F17', color: '#FFF' }}>
+                    T-{t.table_number}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <h1 className="font-sora" style={{ fontSize: 'var(--text-hero)', fontWeight: 700, color: 'var(--text-primary)', margin: 0, lineHeight: 1.2 }}>
+              Savour Bistro
+            </h1>
+          </div>
+
+          <div style={{ width: 42, height: 42, borderRadius: '50%', background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Utensils style={{ width: 20, height: 20, color: 'var(--accent-orange)' }} />
+          </div>
+        </div>
+
+        {/* -------------------- MAIN MENU TAB -------------------- */}
+        {activeTab === 'menu' && (
+          <>
+            {/* Search Bar */}
+            <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
+              <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center' }}>
+                <Search style={{ position: 'absolute', left: 14, width: 18, height: 18, color: 'var(--text-secondary)' }} />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search your favorite food"
+                  style={{
+                    width: '100%',
+                    height: 48,
+                    padding: '0 16px 0 44px',
+                    borderRadius: 'var(--radius-pill)',
+                    background: 'var(--surface)',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    color: 'var(--text-primary)',
+                    fontSize: '0.875rem',
+                    outline: 'none',
+                  }}
+                />
+              </div>
+              <button style={{ width: 48, height: 48, borderRadius: 'var(--radius-card)', background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                <SlidersHorizontal style={{ width: 18, height: 18, color: 'var(--text-primary)' }} />
+              </button>
+            </div>
+
+            {/* Category Chips Horizontal Scroll */}
+            <div className="no-scrollbar" style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 16, marginBottom: 16 }}>
+              {CATEGORIES.map((cat) => {
+                const isActive = selectedCategory === cat.id;
+                return (
+                  <button
+                    key={cat.id}
+                    onClick={() => setSelectedCategory(cat.id)}
+                    className="font-sora"
+                    style={{
+                      flexShrink: 0,
+                      padding: '10px 18px',
+                      borderRadius: 'var(--radius-pill)',
+                      fontSize: '0.875rem',
+                      fontWeight: 600,
+                      border: 'none',
+                      cursor: 'pointer',
+                      background: isActive ? 'var(--accent-orange)' : 'var(--surface)',
+                      color: isActive ? '#FFFFFF' : 'var(--text-secondary)',
+                      boxShadow: isActive ? '0 4px 14px rgba(255,138,52,0.4)' : 'none',
+                      transition: 'all 0.2s ease',
+                    }}
+                  >
+                    {cat.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Chef's Special Feature Promo Banner */}
+            {chefSpecialDish && selectedCategory === 'All' && !searchQuery && (
+              <div
+                onClick={() => setActiveItemModal(chefSpecialDish)}
+                className="cust-card"
+                style={{
+                  position: 'relative',
+                  overflow: 'hidden',
+                  padding: 20,
+                  marginBottom: 24,
+                  cursor: 'pointer',
+                  background: 'linear-gradient(135deg, #3D2415 0%, #2B1F17 100%)',
+                  border: '1px solid rgba(255,138,52,0.25)',
+                }}
+              >
+                <div style={{ width: '60%', zIndex: 2, position: 'relative' }}>
+                  <span style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--accent-orange)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                    🔥 Chef's Special
+                  </span>
+                  <h3 className="font-sora" style={{ fontSize: '1.25rem', fontWeight: 700, color: '#FFF', margin: '4px 0 8px', lineHeight: 1.2 }}>
+                    {chefSpecialDish.name}
+                  </h3>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: 14, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                    {chefSpecialDish.description}
+                  </p>
+                  <button
+                    style={{
+                      padding: '8px 16px',
+                      borderRadius: 'var(--radius-pill)',
+                      background: 'var(--accent-orange)',
+                      color: '#FFF',
+                      border: 'none',
+                      fontSize: '0.75rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Order Now — ₹{chefSpecialDish.price.toFixed(2)}
+                  </button>
+                </div>
+                <img
+                  src={chefSpecialDish.image_url || chefSpecialDish.image}
+                  alt={chefSpecialDish.name}
+                  style={{
+                    position: 'absolute',
+                    right: -10,
+                    bottom: -10,
+                    width: 140,
+                    height: 140,
+                    objectFit: 'cover',
+                    borderRadius: '50%',
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+                  }}
+                />
+              </div>
+            )}
+
+            {/* Popular Now Horizontal Scroll Row */}
+            {selectedCategory === 'All' && !searchQuery && (
+              <div style={{ marginBottom: 24 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <h2 className="font-sora" style={{ fontSize: 'var(--cust-text-h2)', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
+                    Popular Now
+                  </h2>
+                  <button
+                    onClick={() => {
+                      setSelectedCategory('All');
+                      setSearchQuery('');
+                      setTimeout(() => {
+                        allDishesSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      }, 50);
+                    }}
+                    style={{ fontSize: '0.75rem', color: 'var(--accent-orange)', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', padding: '4px 0' }}
+                  >
+                    View All
+                  </button>
+                </div>
+
+                <div
+                  ref={popularScroll.ref}
+                  onMouseDown={popularScroll.onMouseDown}
+                  onMouseUp={popularScroll.onMouseUp}
+                  onMouseMove={popularScroll.onMouseMove}
+                  onMouseLeave={popularScroll.onMouseLeave}
+                  className="no-scrollbar"
+                  style={{ display: 'flex', gap: 14, overflowX: 'auto', paddingBottom: 8, paddingLeft: 16, paddingRight: 16, marginLeft: -16, marginRight: -16, cursor: 'grab', WebkitOverflowScrolling: 'touch' }}
+                >
+                  {popularDishes.map((dish) => {
+                    const isFav = favorites.has(dish.id);
+                    return (
+                      <div
+                        key={dish.id}
+                        onClick={() => setActiveItemModal(dish)}
+                        className="cust-card"
+                        style={{
+                          flexShrink: 0,
+                          width: 200,
+                          minWidth: 200,
+                          padding: 12,
+                          cursor: 'pointer',
+                          position: 'relative',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justifyContent: 'space-between',
+                        }}
+                      >
+                        {/* Heart icon top-right */}
+                        <button
+                          onClick={(e) => toggleFavorite(e, dish.id)}
+                          style={{
+                            position: 'absolute',
+                            top: 18,
+                            right: 18,
+                            zIndex: 3,
+                            width: 28,
+                            height: 28,
+                            borderRadius: '50%',
+                            background: 'rgba(0,0,0,0.4)',
+                            backdropFilter: 'blur(4px)',
+                            border: 'none',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          <Heart
+                            style={{
+                              width: 14,
+                              height: 14,
+                              color: isFav ? 'var(--favorite-red)' : '#FFF',
+                              fill: isFav ? 'var(--favorite-red)' : 'transparent',
+                            }}
+                          />
+                        </button>
+
+                        <div style={{ width: '100%', height: 140, borderRadius: 'var(--radius-card)', overflow: 'hidden', marginBottom: 10, background: '#1C1410' }}>
+                          <img src={dish.image_url || dish.image} alt={dish.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        </div>
+
+                        <div>
+                          <h4 className="font-sora" style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {dish.name}
+                          </h4>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 }}>
+                            <span className="font-sora" style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--accent-orange)' }}>
+                              ₹{dish.price.toFixed(2)}
+                            </span>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                addToCart(dish, 1);
+                              }}
+                              style={{
+                                width: 26,
+                                height: 26,
+                                borderRadius: 'var(--radius-sm)',
+                                background: 'var(--accent-orange)',
+                                border: 'none',
+                                color: '#FFF',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              <Plus style={{ width: 16, height: 16 }} />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* All Dishes Section Header */}
+            <div ref={allDishesSectionRef} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+              <h2 className="font-sora" style={{ fontSize: 'var(--cust-text-h2)', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
+                {selectedCategory === 'All' ? 'All Dishes' : selectedCategory} ({filteredDishes.length})
+              </h2>
+            </div>
+
+            {/* Dishes Vertical List */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {filteredDishes.map((dish) => {
+                const isAvailable = dish.is_available ?? dish.inStock ?? true;
+                const isFav = favorites.has(dish.id);
+
+                return (
+                  <div
+                    key={dish.id}
+                    onClick={() => isAvailable && setActiveItemModal(dish)}
+                    className="cust-card"
+                    style={{
+                      display: 'flex',
+                      gap: 12,
+                      padding: 12,
+                      cursor: isAvailable ? 'pointer' : 'default',
+                      opacity: isAvailable ? 1 : 0.5,
+                      position: 'relative',
+                    }}
+                  >
+                    <div style={{ width: 84, height: 84, borderRadius: 'var(--radius-card)', overflow: 'hidden', flexShrink: 0, position: 'relative', background: '#1C1410' }}>
+                      <img src={dish.image_url || dish.image} alt={dish.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      {!isAvailable && (
+                        <div style={{ position: 'absolute', inset: 0, background: 'rgba(28,20,16,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <span style={{ fontSize: '0.625rem', fontWeight: 700, color: 'var(--accent-red)', textTransform: 'uppercase' }}>Sold Out</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 6 }}>
+                          <h3 className="font-sora" style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {dish.name}
+                          </h3>
+                          <button
+                            onClick={(e) => toggleFavorite(e, dish.id)}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                          >
+                            <Heart style={{ width: 14, height: 14, color: isFav ? 'var(--favorite-red)' : 'var(--text-secondary)', fill: isFav ? 'var(--favorite-red)' : 'transparent' }} />
+                          </button>
+                        </div>
+                        <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '4px 0 0', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                          {dish.description}
+                        </p>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
+                        <span className="font-sora" style={{ fontSize: '0.9375rem', fontWeight: 700, color: 'var(--accent-orange)' }}>
+                          ₹{dish.price.toFixed(2)}
+                        </span>
+
+                        {isAvailable ? (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              addToCart(dish, 1);
+                            }}
+                            style={{
+                              padding: '6px 12px',
+                              borderRadius: 'var(--radius-pill)',
+                              background: 'var(--accent-orange)',
+                              border: 'none',
+                              color: '#FFF',
+                              fontSize: '0.75rem',
+                              fontWeight: 700,
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 4,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            <Plus style={{ width: 14, height: 14 }} /> Add
+                          </button>
+                        ) : (
+                          <span style={{ fontSize: '0.75rem', color: 'var(--accent-red)', fontWeight: 600 }}>Sold Out</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {filteredDishes.length === 0 && (
+                <div style={{ padding: '40px 16px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                  <p style={{ fontSize: '0.875rem' }}>Nothing found in {selectedCategory}.</p>
+                </div>
+              )}
+            </div>
+
+            {/* Sticky Floating Cart Bar */}
+            {totalCartQty > 0 && (
+              <div style={{ position: 'fixed', bottom: 80, left: '50%', transform: 'translateX(-50%)', width: 'calc(100% - 32px)', maxWidth: 448, zIndex: 40 }}>
+                <button
+                  onClick={() => setActiveTab('cart')}
+                  className="font-sora animate-pop"
+                  style={{
+                    width: '100%',
+                    padding: '14px 20px',
+                    borderRadius: 'var(--radius-pill)',
+                    background: 'var(--accent-orange)',
+                    color: '#FFFFFF',
+                    border: 'none',
+                    boxShadow: '0 8px 24px rgba(255,138,52,0.4)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <ShoppingBag style={{ width: 20, height: 20 }} />
+                    <span style={{ fontSize: '0.875rem', fontWeight: 700 }}>
+                      {totalCartQty} {totalCartQty === 1 ? 'item' : 'items'}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: '1rem', fontWeight: 700 }}>
+                      View Cart · ₹{cartSubtotal.toFixed(2)}
+                    </span>
+                    <ArrowRight style={{ width: 18, height: 18 }} />
+                  </div>
+                </button>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* -------------------- CART TAB -------------------- */}
+        {activeTab === 'cart' && (
+          <div style={{ paddingTop: 10 }}>
+            <h2 className="font-sora" style={{ fontSize: '1.375rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 16 }}>
+              Your Cart
+            </h2>
+
+            {cart.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '60px 16px', background: 'var(--surface)', borderRadius: 'var(--radius-card)' }}>
+                <ShoppingBag style={{ width: 48, height: 48, color: 'var(--text-secondary)', margin: '0 auto 12px' }} />
+                <h3 className="font-sora" style={{ fontSize: '1.125rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 }}>
+                  Your cart is empty
+                </h3>
+                <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: 20 }}>
+                  Tap a dish from the menu to add it to your order.
+                </p>
+                <button
+                  onClick={() => setActiveTab('menu')}
+                  style={{ padding: '10px 24px', borderRadius: 'var(--radius-pill)', background: 'var(--accent-orange)', border: 'none', color: '#FFF', fontWeight: 600, fontSize: '0.875rem', cursor: 'pointer' }}
+                >
+                  Browse Menu
+                </button>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                {/* Cart Items List */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {cart.map((item) => (
+                    <div key={item.id} className="cust-card" style={{ padding: 14, display: 'flex', gap: 12, alignItems: 'center' }}>
+                      <img src={item.image_url} alt={item.name} style={{ width: 60, height: 60, borderRadius: 'var(--radius-card)', objectFit: 'cover' }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <h4 className="font-sora" style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 2px' }}>
+                          {item.name}
+                        </h4>
+                        <p className="font-sora" style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--accent-orange)', margin: 0 }}>
+                          ₹{(item.price * item.quantity).toFixed(2)}
+                        </p>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--surface-raised)', padding: '4px 8px', borderRadius: 'var(--radius-pill)' }}>
+                        <button
+                          onClick={() => updateCartQuantity(item.id, -1)}
+                          style={{ width: 24, height: 24, borderRadius: '50%', background: 'transparent', border: 'none', color: '#FFF', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                        >
+                          <Minus style={{ width: 12, height: 12 }} />
+                        </button>
+                        <span className="font-sora" style={{ fontSize: '0.875rem', fontWeight: 700, minWidth: 16, textAlign: 'center' }}>
+                          {item.quantity}
+                        </span>
+                        <button
+                          onClick={() => updateCartQuantity(item.id, 1)}
+                          style={{ width: 24, height: 24, borderRadius: '50%', background: 'var(--accent-orange)', border: 'none', color: '#FFF', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                        >
+                          <Plus style={{ width: 12, height: 12 }} />
+                        </button>
+                      </div>
+
+                      <button onClick={() => removeFromCart(item.id)} style={{ background: 'none', border: 'none', color: 'var(--accent-red)', cursor: 'pointer', padding: 4 }}>
+                        <Trash2 style={{ width: 16, height: 16 }} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Promo Code & Tip */}
+                <div className="cust-card" style={{ padding: 16 }}>
+                  <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+                    <input
+                      type="text"
+                      value={couponCode}
+                      onChange={(e) => setCouponCode(e.target.value)}
+                      placeholder="Promo Code (SAVOUR20)"
+                      style={{ flex: 1, padding: '8px 12px', borderRadius: 'var(--radius-pill)', background: 'var(--surface-raised)', border: '1px solid rgba(255,255,255,0.08)', color: '#FFF', fontSize: '0.875rem', outline: 'none' }}
+                    />
+                    <button onClick={handleApplyCoupon} style={{ padding: '8px 16px', borderRadius: 'var(--radius-pill)', background: 'var(--surface-raised)', border: '1px solid var(--accent-orange)', color: 'var(--accent-orange)', fontWeight: 600, fontSize: '0.875rem', cursor: 'pointer' }}>
+                      Apply
+                    </button>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Tip Staff:</span>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      {[0, 20, 50].map((amt) => (
+                        <button
+                          key={amt}
+                          onClick={() => setTipAmount(amt)}
+                          style={{
+                            padding: '6px 12px',
+                            borderRadius: 'var(--radius-pill)',
+                            fontSize: '0.75rem',
+                            fontWeight: tipAmount === amt ? 700 : 500,
+                            background: tipAmount === amt ? 'var(--accent-orange)' : 'var(--surface-raised)',
+                            color: tipAmount === amt ? '#FFF' : 'var(--text-secondary)',
+                            border: 'none',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {amt === 0 ? 'None' : `₹${amt}`}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bill Breakdown */}
+                <div className="cust-card" style={{ padding: 16 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: 8 }}>
+                    <span>Subtotal</span>
+                    <span>₹{cartSubtotal.toFixed(2)}</span>
+                  </div>
+                  {discountAmount > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', color: 'var(--accent-red)', marginBottom: 8 }}>
+                      <span>Discount ({appliedCoupon})</span>
+                      <span>-₹{discountAmount.toFixed(2)}</span>
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: 8 }}>
+                    <span>Taxes (8%)</span>
+                    <span>₹{tax.toFixed(2)}</span>
+                  </div>
+                  {tipAmount > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: 8 }}>
+                      <span>Staff Tip</span>
+                      <span>₹{tipAmount.toFixed(2)}</span>
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.125rem', fontWeight: 700, color: 'var(--text-primary)', paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                    <span>Grand Total</span>
+                    <span className="font-sora" style={{ color: 'var(--accent-orange)' }}>
+                      ₹{grandTotal.toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Send Order to Kitchen Button */}
+                <button
+                  onClick={handleSendToKitchen}
+                  disabled={isSubmitting}
+                  className="font-sora"
+                  style={{
+                    width: '100%',
+                    height: 52,
+                    borderRadius: 'var(--radius-button)',
+                    background: 'var(--accent-orange)',
+                    border: 'none',
+                    color: '#FFFFFF',
+                    fontSize: '1rem',
+                    fontWeight: 700,
+                    cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                    boxShadow: '0 8px 24px rgba(255,138,52,0.4)',
+                  }}
+                >
+                  {isSubmitting ? 'Sending Order...' : 'Send Order to Kitchen'}
+                  {!isSubmitting && <ArrowRight style={{ width: 20, height: 20 }} />}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* -------------------- ORDER STATUS TAB -------------------- */}
+        {activeTab === 'status' && (
+          <div style={{ paddingTop: 10 }}>
+            <h2 className="font-sora" style={{ fontSize: '1.375rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 16 }}>
+              Order Status
+            </h2>
+
+            {!activeOrderForTable ? (
+              <div style={{ textAlign: 'center', padding: '60px 16px', background: 'var(--surface)', borderRadius: 'var(--radius-card)' }}>
+                <Clock style={{ width: 48, height: 48, color: 'var(--text-secondary)', margin: '0 auto 12px' }} />
+                <h3 className="font-sora" style={{ fontSize: '1.125rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 }}>
+                  No Active Orders
+                </h3>
+                <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: 20 }}>
+                  Place an order from the menu to track its preparation status.
+                </p>
+                <button
+                  onClick={() => setActiveTab('menu')}
+                  style={{ padding: '10px 24px', borderRadius: 'var(--radius-pill)', background: 'var(--accent-orange)', border: 'none', color: '#FFF', fontWeight: 600, fontSize: '0.875rem', cursor: 'pointer' }}
+                >
+                  Go to Menu
+                </button>
+              </div>
+            ) : (
+              <div className="cust-card" style={{ padding: 20 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: 14, marginBottom: 20 }}>
+                  <div>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
+                      Table {activeOrderForTable.table_id}
+                    </span>
+                    <h3 className="font-sora" style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+                      Ticket #{activeOrderForTable.orderNumber}
+                    </h3>
+                  </div>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--accent-orange)', background: 'rgba(255,138,52,0.15)', padding: '4px 10px', borderRadius: 'var(--radius-pill)', textTransform: 'uppercase' }}>
+                    {activeOrderForTable.status}
+                  </span>
+                </div>
+
+                {/* Progress Stepper */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 20, position: 'relative', paddingLeft: 24, marginBottom: 24 }}>
+                  <div style={{ position: 'absolute', left: 9, top: 10, bottom: 10, width: 2, background: 'rgba(255,255,255,0.1)' }} />
+                  
+                  {[
+                    { key: 'placed', label: 'Order Received' },
+                    { key: 'accepted', label: 'Accepted by Kitchen' },
+                    { key: 'preparing', label: 'Chef Preparing' },
+                    { key: 'ready', label: 'Ready for Serving' },
+                    { key: 'served', label: 'Served to Table' },
+                  ].map((step, idx) => {
+                    const statusSequence: OrderStatus[] = ['placed', 'accepted', 'preparing', 'ready', 'served', 'completed'];
+                    const currentIdx = statusSequence.indexOf(activeOrderForTable.status);
+                    const isDone = idx < currentIdx;
+                    const isActive = idx === currentIdx;
+
+                    return (
+                      <div key={step.key} style={{ display: 'flex', alignItems: 'center', gap: 12, position: 'relative' }}>
+                        <div
+                          style={{
+                            position: 'absolute',
+                            left: -20,
+                            width: 20,
+                            height: 20,
+                            borderRadius: '50%',
+                            background: isActive ? 'var(--accent-orange)' : isDone ? '#2E7D32' : 'var(--surface-raised)',
+                            border: isActive || isDone ? 'none' : '1px solid rgba(255,255,255,0.2)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: '#FFF',
+                          }}
+                        >
+                          {isDone && <Check style={{ width: 12, height: 12, strokeWidth: 3 }} />}
+                          {isActive && <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#FFF' }} />}
+                        </div>
+                        <span
+                          className="font-sora"
+                          style={{
+                            fontSize: '0.875rem',
+                            fontWeight: isActive ? 700 : 500,
+                            color: isActive ? 'var(--accent-orange)' : isDone ? 'var(--text-primary)' : 'var(--text-secondary)',
+                          }}
+                        >
+                          {step.label}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Ordered Items Summary */}
+                <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 14 }}>
+                  <h4 style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: 8 }}>
+                    Ordered Items
+                  </h4>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {activeOrderForTable.items.map((i, index) => (
+                      <div key={index} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', color: 'var(--text-primary)' }}>
+                        <span>{i.qty}x {i.name}</span>
+                        <span className="font-sora" style={{ fontWeight: 600 }}>₹{(i.price * i.qty).toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+      </div>
+
+      {/* -------------------- FIXED BOTTOM NAVIGATION BAR -------------------- */}
+      <div
+        style={{
+          position: 'fixed',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          zIndex: 50,
+          background: 'var(--surface)',
+          borderTop: '1px solid rgba(255,255,255,0.08)',
+          backdropFilter: 'blur(12px)',
+          padding: '10px 16px 14px',
+        }}
+      >
+        <div style={{ maxWidth: 440, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-around' }}>
+          {[
+            { key: 'menu', label: 'Menu', icon: Utensils },
+            { key: 'cart', label: 'Cart', icon: ShoppingBag, badge: totalCartQty },
+            { key: 'status', label: 'Order Status', icon: Clock, badge: activeOrderForTable ? 1 : 0 },
+          ].map((nav) => {
+            const Icon = nav.icon;
+            const isActive = activeTab === nav.key;
+
+            return (
+              <button
+                key={nav.key}
+                onClick={() => setActiveTab(nav.key as any)}
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: 4,
+                  background: 'none',
+                  border: 'none',
+                  color: isActive ? 'var(--accent-orange)' : 'var(--text-secondary)',
+                  cursor: 'pointer',
+                  position: 'relative',
+                  padding: '4px 12px',
+                }}
+              >
+                <div style={{ position: 'relative' }}>
+                  <Icon style={{ width: 22, height: 22 }} />
+                  {nav.badge != null && nav.badge > 0 && (
+                    <span
+                      style={{
+                        position: 'absolute',
+                        top: -4,
+                        right: -8,
+                        minWidth: 16,
+                        height: 16,
+                        borderRadius: 999,
+                        background: 'var(--accent-orange)',
+                        color: '#FFF',
+                        fontSize: '0.625rem',
+                        fontWeight: 700,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '0 3px',
+                      }}
+                    >
+                      {nav.badge}
+                    </span>
+                  )}
+                </div>
+                <span className="font-sora" style={{ fontSize: '0.6875rem', fontWeight: isActive ? 700 : 500 }}>
+                  {nav.label}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Item Detail Sheet Modal */}
+      <FoodDetailModal item={activeItemModal} onClose={() => setActiveItemModal(null)} />
+    </div>
+  );
+};
