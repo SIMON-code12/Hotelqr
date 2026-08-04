@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useStore } from '../../context/StoreContext';
 import { IndianRupee, ShoppingBag, Users, QrCode, Check, Edit2, Search, TrendingUp, Plus, X } from 'lucide-react';
 import { QrGeneratorModal } from './QrGeneratorModal';
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
 /* ── Helpers ── */
 const statusBadgeClass: Record<string, string> = {
@@ -74,14 +74,42 @@ export const AdminView: React.FC = () => {
     return Object.values(counts).sort((a, b) => b.qty - a.qty).slice(0, 5);
   }, [validOrders]);
 
-  const revenueChartData = [
-    { time: '12 PM', revenue: 140 },
-    { time: '2 PM',  revenue: 280 },
-    { time: '4 PM',  revenue: 190 },
-    { time: '6 PM',  revenue: 420 },
-    { time: '8 PM',  revenue: 580 },
-    { time: '10 PM', revenue: 310 },
-  ];
+  // ── REAL hourly revenue: computed from actual orders placed today ──
+  const revenueChartData = useMemo(() => {
+    const now = new Date();
+    const currentHour = now.getHours();
+
+    // Build 8 AM – 11 PM slots (hours 8 to 23)
+    const HOURS = [8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23];
+    const LABELS = ['8 AM','9 AM','10 AM','11 AM','12 PM','1 PM','2 PM',
+                    '3 PM','4 PM','5 PM','6 PM','7 PM','8 PM','9 PM','10 PM','11 PM'];
+
+    // Accumulate real revenue per hour from valid orders placed today
+    const hourlyRevenue: Record<number, number> = {};
+    HOURS.forEach(h => { hourlyRevenue[h] = 0; });
+
+    validOrders.forEach(order => {
+      const d = new Date(order.created_at);
+      // Only count orders from today
+      if (
+        d.getFullYear() === now.getFullYear() &&
+        d.getMonth()   === now.getMonth()    &&
+        d.getDate()    === now.getDate()
+      ) {
+        const h = d.getHours();
+        if (h >= 8 && h <= 23) {
+          hourlyRevenue[h] = (hourlyRevenue[h] || 0) + order.total;
+        }
+      }
+    });
+
+    return HOURS.map((h, i) => ({
+      time:    LABELS[i],
+      revenue: Math.round(hourlyRevenue[h] * 100) / 100,
+      future:  h > currentHour,          // shade future hours differently
+      noData:  hourlyRevenue[h] === 0 && h <= currentHour, // past hours with 0 orders
+    }));
+  }, [validOrders]);
 
   const filteredOrders = useMemo(() => {
     return orders.filter((o) => {
@@ -153,13 +181,40 @@ export const AdminView: React.FC = () => {
           flexWrap: 'wrap', gap: 16,
         }}
       >
-        <div>
-          <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--accent-orange)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-            Restaurant Control Panel
-          </span>
-          <h1 className="font-sora" style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-primary)', marginTop: 2 }}>
-            Admin Dashboard
-          </h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div>
+            <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--accent-orange)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+              Restaurant Control Panel
+            </span>
+            <h1 className="font-sora" style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-primary)', marginTop: 2 }}>
+              Admin Dashboard
+            </h1>
+          </div>
+          <button
+            onClick={() => {
+              if (confirm('Reset all orders, menu price overrides, and service requests back to realistic demo data?')) {
+                localStorage.removeItem('savour_orders');
+                localStorage.removeItem('savour_menu_items');
+                localStorage.removeItem('savour_waiter_requests');
+                window.location.reload();
+              }
+            }}
+            style={{
+              padding: '6px 12px',
+              borderRadius: 'var(--radius-pill)',
+              background: 'rgba(225, 80, 80, 0.15)',
+              border: '1px solid rgba(225, 80, 80, 0.3)',
+              color: '#FF6b6b',
+              fontSize: '0.75rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(225, 80, 80, 0.25)' }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(225, 80, 80, 0.15)' }}
+          >
+            Reset Demo Data
+          </button>
         </div>
 
         {/* Tab Navigation */}
@@ -251,17 +306,43 @@ export const AdminView: React.FC = () => {
             {/* Charts Row */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: 20 }}>
               <div className="admin-card" style={{ padding: 20 }}>
-                <h3 className="font-sora" style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: 16 }}>
+                <h3 className="font-sora" style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 }}>
                   Today's Hourly Revenue (₹)
                 </h3>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: 16 }}>
+                  Real orders · 8 AM – 11 PM · updates live as orders come in
+                </p>
                 <div style={{ width: '100%', height: 220 }}>
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={revenueChartData}>
-                      <XAxis dataKey="time" stroke="var(--text-muted)" fontSize={12} />
-                      <YAxis stroke="var(--text-muted)" fontSize={12} />
-                      <Tooltip contentStyle={tooltipStyle} />
-                      <Line type="monotone" dataKey="revenue" stroke="var(--accent-orange)" strokeWidth={3} dot={{ fill: 'var(--accent-orange)' }} />
-                    </LineChart>
+                    <AreaChart data={revenueChartData} margin={{ top: 4, right: 8, left: -10, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="revenueGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%"  stopColor="#FF8A34" stopOpacity={0.35} />
+                          <stop offset="95%" stopColor="#FF8A34" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                      <XAxis dataKey="time" stroke="var(--text-muted)" fontSize={11} tick={{ fill: 'var(--text-muted)' }} tickLine={false} axisLine={false} />
+                      <YAxis stroke="var(--text-muted)" fontSize={11} tick={{ fill: 'var(--text-muted)' }} tickLine={false} axisLine={false} tickFormatter={(v) => `₹${v}`} />
+                      <Tooltip
+                        contentStyle={tooltipStyle}
+                        formatter={(value: number) => [`₹${value.toLocaleString()}`, 'Revenue']}
+                        labelStyle={{ color: 'var(--text-secondary)', fontSize: 12 }}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="revenue"
+                        stroke="var(--accent-orange)"
+                        strokeWidth={2.5}
+                        fill="url(#revenueGrad)"
+                        dot={(props: any) => {
+                          const { cx, cy, payload } = props;
+                          if (payload.future) return <circle key={cx} cx={cx} cy={cy} r={3} fill="rgba(255,138,52,0.3)" stroke="rgba(255,138,52,0.5)" strokeWidth={1} strokeDasharray="2" />;
+                          return <circle key={cx} cx={cx} cy={cy} r={3} fill="var(--accent-orange)" stroke="#1C1410" strokeWidth={1.5} />;
+                        }}
+                        activeDot={{ r: 6, fill: 'var(--accent-orange)', stroke: '#FFF', strokeWidth: 2 }}
+                      />
+                    </AreaChart>
                   </ResponsiveContainer>
                 </div>
               </div>

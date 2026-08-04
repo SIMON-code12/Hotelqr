@@ -46,27 +46,37 @@ const MainAppContent: React.FC = () => {
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--ink-900)', color: 'var(--chalk-100)', display: 'flex', flexDirection: 'column' }}>
-      {/* Top Bar Navigation */}
-      <Navbar
-        onOpenCart={() => setIsCartOpen(true)}
-        onOpenOrderTracker={() => setIsOrderTrackerOpen(true)}
-      />
+      {/* Top Bar Navigation — hidden for customer (customer has its own inline header) */}
+      {role !== 'customer' && (
+        <Navbar
+          onOpenCart={() => setIsCartOpen(true)}
+          onOpenOrderTracker={() => setIsOrderTrackerOpen(true)}
+        />
+      )}
 
       {/* Main View Area */}
-      <main style={{ flex: 1, width: '100%', maxWidth: role === 'simulator' ? 1600 : 1200, margin: '0 auto', padding: '24px 16px' }}>
-        {role === 'customer' && <CustomerView />}
+      <main style={{
+        flex: 1,
+        width: '100%',
+        maxWidth: role === 'simulator' ? 1600 : role === 'customer' ? '100%' : 1200,
+        margin: '0 auto',
+        padding: role === 'customer' ? '0' : '24px 16px',
+      }}>
+        {role === 'customer' && <CustomerView onOpenCart={() => setIsCartOpen(true)} onOpenOrderTracker={() => setIsOrderTrackerOpen(true)} />}
         {role === 'kitchen' && <KitchenView />}
         {role === 'admin' && <AdminView />}
         {role === 'simulator' && <MultiDashboardView />}
       </main>
 
-      {/* Footer */}
-      <footer style={{ borderTop: '1px solid var(--line-15)', padding: '20px 0', textAlign: 'center', fontSize: '0.75rem', color: 'var(--chalk-400)', background: 'var(--ink-700)' }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 16px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-          <span>Savour OS — Table-Side QR Ordering & Kitchen Operations System</span>
-          <span style={{ color: 'var(--gold-500)' }}>Vite · React · TypeScript · Real-Time Broadcast Sync</span>
-        </div>
-      </footer>
+      {/* Footer — only for non-customer views */}
+      {role !== 'customer' && (
+        <footer style={{ borderTop: '1px solid var(--line-15)', padding: '20px 0', textAlign: 'center', fontSize: '0.75rem', color: 'var(--chalk-400)', background: 'var(--ink-700)' }}>
+          <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 16px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+            <span>Savour OS — Table-Side QR Ordering & Kitchen Operations System</span>
+            <span style={{ color: 'var(--gold-500)' }}>Vite · React · TypeScript · Real-Time Broadcast Sync</span>
+          </div>
+        </footer>
+      )}
 
       {/* Drawers & Modals */}
       <CartDrawer

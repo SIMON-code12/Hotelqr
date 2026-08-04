@@ -252,9 +252,224 @@ export const INITIAL_TABLES: TableInfo[] = Array.from({ length: 12 }, (_, i) => 
   };
 });
 
-const now = Date.now();
+const todayStart = new Date();
+todayStart.setHours(0,0,0,0);
+const startMs = todayStart.getTime();
 
 export const INITIAL_ORDERS: Order[] = [
+  {
+    id: 'ORD-1001',
+    orderNumber: '1001',
+    table_id: 'T-01',
+    table_number: 1,
+    customerName: 'Anoop Kumar',
+    items: [
+      { menu_item_id: 'dish-8', name: 'Yuzu Dragonfruit Sparkler', qty: 2, price: 8, is_veg: true },
+      { menu_item_id: 'dish-9', name: 'Iced Smoked Vanilla Latte', qty: 1, price: 7, is_veg: true }
+    ],
+    subtotal: 23,
+    discount: 0,
+    tax: 1.84,
+    total: 24.84,
+    status: 'completed',
+    created_at: startMs + 9.5 * 3600 * 1000, // 9:30 AM
+    updated_at: startMs + 10 * 3600 * 1000,
+    status_history: [{ status: 'placed', changed_at: startMs + 9.5 * 3600 * 1000 }, { status: 'completed', changed_at: startMs + 10 * 3600 * 1000 }]
+  },
+  {
+    id: 'ORD-1002',
+    orderNumber: '1002',
+    table_id: 'T-05',
+    table_number: 5,
+    customerName: 'Deepa Nair',
+    items: [
+      { menu_item_id: 'dish-3', name: 'Burrata & Heirloom Tomato Tartine', qty: 1, price: 16, is_veg: true },
+      { menu_item_id: 'dish-7', name: 'Crispy Truffle Parmesan Fries', qty: 1, price: 11, is_veg: true }
+    ],
+    subtotal: 27,
+    discount: 5.4,
+    tax: 1.728,
+    total: 23.328,
+    status: 'completed',
+    created_at: startMs + 10.25 * 3600 * 1000, // 10:15 AM
+    updated_at: startMs + 10.75 * 3600 * 1000,
+    status_history: [{ status: 'placed', changed_at: startMs + 10.25 * 3600 * 1000 }, { status: 'completed', changed_at: startMs + 10.75 * 3600 * 1000 }],
+    couponApplied: 'SAVOUR20'
+  },
+  {
+    id: 'ORD-1003',
+    orderNumber: '1003',
+    table_id: 'T-02',
+    table_number: 2,
+    customerName: 'Rohan Sharma',
+    items: [
+      { menu_item_id: 'dish-2', name: 'Smoked Wagyu Smash Burger', qty: 2, price: 22, is_veg: false, options: [{ categoryName: 'Sides', optionLabel: 'Truffle Fries', extraPrice: 4 }] },
+      { menu_item_id: 'dish-8', name: 'Yuzu Dragonfruit Sparkler', qty: 2, price: 8, is_veg: true }
+    ],
+    subtotal: 68,
+    discount: 0,
+    tax: 5.44,
+    total: 73.44,
+    status: 'completed',
+    created_at: startMs + 11.5 * 3600 * 1000, // 11:30 AM
+    updated_at: startMs + 12 * 3600 * 1000,
+    status_history: [{ status: 'placed', changed_at: startMs + 11.5 * 3600 * 1000 }, { status: 'completed', changed_at: startMs + 12 * 3600 * 1000 }]
+  },
+  {
+    id: 'ORD-1004',
+    orderNumber: '1004',
+    table_id: 'T-03',
+    table_number: 3,
+    customerName: 'Rahul Pillai',
+    items: [
+      { menu_item_id: 'dish-1', name: 'Truffle Mushroom Risotto', qty: 2, price: 24, is_veg: true },
+      { menu_item_id: 'dish-5', name: 'Artisanal Wood-Fired Margherita', qty: 1, price: 19, is_veg: true }
+    ],
+    subtotal: 67,
+    discount: 13.4,
+    tax: 4.288,
+    total: 57.888,
+    status: 'completed',
+    created_at: startMs + 12.2 * 3600 * 1000, // 12:12 PM
+    updated_at: startMs + 12.8 * 3600 * 1000,
+    status_history: [{ status: 'placed', changed_at: startMs + 12.2 * 3600 * 1000 }, { status: 'completed', changed_at: startMs + 12.8 * 3600 * 1000 }],
+    couponApplied: 'SAVOUR20'
+  },
+  {
+    id: 'ORD-1005',
+    orderNumber: '1005',
+    table_id: 'T-07',
+    table_number: 7,
+    customerName: 'Sneha George',
+    items: [
+      { menu_item_id: 'dish-6', name: 'Charcoal Grilled Lamb Chops', qty: 2, price: 34, is_veg: false },
+      { menu_item_id: 'dish-10', name: 'Valrhona Chocolate Lava Dome', qty: 2, price: 14, is_veg: true }
+    ],
+    subtotal: 96,
+    discount: 0,
+    tax: 7.68,
+    total: 103.68,
+    status: 'completed',
+    created_at: startMs + 13.1 * 3600 * 1000, // 1:06 PM
+    updated_at: startMs + 13.7 * 3600 * 1000,
+    status_history: [{ status: 'placed', changed_at: startMs + 13.1 * 3600 * 1000 }, { status: 'completed', changed_at: startMs + 13.7 * 3600 * 1000 }]
+  },
+  {
+    id: 'ORD-1006',
+    orderNumber: '1006',
+    table_id: 'T-10',
+    table_number: 10,
+    customerName: 'Vikram Bose',
+    items: [
+      { menu_item_id: 'dish-2', name: 'Smoked Wagyu Smash Burger', qty: 3, price: 22, is_veg: false }
+    ],
+    subtotal: 66,
+    discount: 10,
+    tax: 4.48,
+    total: 60.48,
+    status: 'completed',
+    created_at: startMs + 14.4 * 3600 * 1000, // 2:24 PM
+    updated_at: startMs + 15 * 3600 * 1000,
+    status_history: [{ status: 'placed', changed_at: startMs + 14.4 * 3600 * 1000 }, { status: 'completed', changed_at: startMs + 15 * 3600 * 1000 }],
+    couponApplied: 'WELCOME10'
+  },
+  {
+    id: 'ORD-1007',
+    orderNumber: '1007',
+    table_id: 'T-09',
+    table_number: 9,
+    customerName: 'Karthik Raja',
+    items: [
+      { menu_item_id: 'dish-11', name: 'Pistachio Milk Cake', qty: 2, price: 12, is_veg: true },
+      { menu_item_id: 'dish-9', name: 'Iced Smoked Vanilla Latte', qty: 2, price: 7, is_veg: true }
+    ],
+    subtotal: 38,
+    discount: 0,
+    tax: 3.04,
+    total: 41.04,
+    status: 'completed',
+    created_at: startMs + 15.6 * 3600 * 1000, // 3:36 PM
+    updated_at: startMs + 16 * 3600 * 1000,
+    status_history: [{ status: 'placed', changed_at: startMs + 15.6 * 3600 * 1000 }, { status: 'completed', changed_at: startMs + 16 * 3600 * 1000 }]
+  },
+  {
+    id: 'ORD-1008',
+    orderNumber: '1008',
+    table_id: 'T-06',
+    table_number: 6,
+    customerName: 'Arjun Das',
+    items: [
+      { menu_item_id: 'dish-5', name: 'Artisanal Wood-Fired Margherita', qty: 2, price: 19, is_veg: true },
+      { menu_item_id: 'dish-7', name: 'Crispy Truffle Parmesan Fries', qty: 1, price: 11, is_veg: true }
+    ],
+    subtotal: 49,
+    discount: 9.8,
+    tax: 3.136,
+    total: 42.336,
+    status: 'completed',
+    created_at: startMs + 17.2 * 3600 * 1000, // 5:12 PM
+    updated_at: startMs + 17.8 * 3600 * 1000,
+    status_history: [{ status: 'placed', changed_at: startMs + 17.2 * 3600 * 1000 }, { status: 'completed', changed_at: startMs + 17.8 * 3600 * 1000 }],
+    couponApplied: 'SAVOUR20'
+  },
+  {
+    id: 'ORD-1009',
+    orderNumber: '1009',
+    table_id: 'T-12',
+    table_number: 12,
+    customerName: 'Meera Sen',
+    items: [
+      { menu_item_id: 'dish-1', name: 'Truffle Mushroom Risotto', qty: 2, price: 24, is_veg: true },
+      { menu_item_id: 'dish-10', name: 'Valrhona Chocolate Lava Dome', qty: 2, price: 14, is_veg: true }
+    ],
+    subtotal: 76,
+    discount: 0,
+    tax: 6.08,
+    total: 82.08,
+    status: 'completed',
+    created_at: startMs + 18.4 * 3600 * 1000, // 6:24 PM
+    updated_at: startMs + 19 * 3600 * 1000,
+    status_history: [{ status: 'placed', changed_at: startMs + 18.4 * 3600 * 1000 }, { status: 'completed', changed_at: startMs + 19 * 3600 * 1000 }]
+  },
+  {
+    id: 'ORD-1010',
+    orderNumber: '1010',
+    table_id: 'T-04',
+    table_number: 4,
+    customerName: 'Sanjay Dutt',
+    items: [
+      { menu_item_id: 'dish-6', name: 'Charcoal Grilled Lamb Chops', qty: 2, price: 34, is_veg: false },
+      { menu_item_id: 'dish-8', name: 'Yuzu Dragonfruit Sparkler', qty: 3, price: 8, is_veg: true }
+    ],
+    subtotal: 92,
+    discount: 18.4,
+    tax: 5.888,
+    total: 79.488,
+    status: 'completed',
+    created_at: startMs + 19.8 * 3600 * 1000, // 7:48 PM
+    updated_at: startMs + 20.4 * 3600 * 1000,
+    status_history: [{ status: 'placed', changed_at: startMs + 19.8 * 3600 * 1000 }, { status: 'completed', changed_at: startMs + 20.4 * 3600 * 1000 }],
+    couponApplied: 'SAVOUR20'
+  },
+  {
+    id: 'ORD-1011',
+    orderNumber: '1011',
+    table_id: 'T-11',
+    table_number: 11,
+    customerName: 'Priya Mani',
+    items: [
+      { menu_item_id: 'dish-2', name: 'Smoked Wagyu Smash Burger', qty: 2, price: 22, is_veg: false },
+      { menu_item_id: 'dish-10', name: 'Valrhona Chocolate Lava Dome', qty: 1, price: 14, is_veg: true }
+    ],
+    subtotal: 58,
+    discount: 0,
+    tax: 4.64,
+    total: 62.64,
+    status: 'completed',
+    created_at: startMs + 20.5 * 3600 * 1000, // 8:30 PM
+    updated_at: startMs + 21 * 3600 * 1000,
+    status_history: [{ status: 'placed', changed_at: startMs + 20.5 * 3600 * 1000 }, { status: 'completed', changed_at: startMs + 21 * 3600 * 1000 }]
+  },
   {
     id: 'ORD-7821',
     orderNumber: '7821',
@@ -271,12 +486,12 @@ export const INITIAL_ORDERS: Order[] = [
     tip: 5,
     total: 43.72,
     status: 'preparing',
-    created_at: now - 1000 * 60 * 7,
-    updated_at: now - 1000 * 60 * 2,
+    created_at: Date.now() - 1000 * 60 * 7,
+    updated_at: Date.now() - 1000 * 60 * 2,
     status_history: [
-      { status: 'placed', changed_at: now - 1000 * 60 * 7 },
-      { status: 'accepted', changed_at: now - 1000 * 60 * 5 },
-      { status: 'preparing', changed_at: now - 1000 * 60 * 2 }
+      { status: 'placed', changed_at: Date.now() - 1000 * 60 * 7 },
+      { status: 'accepted', changed_at: Date.now() - 1000 * 60 * 5 },
+      { status: 'preparing', changed_at: Date.now() - 1000 * 60 * 2 }
     ],
     specialInstructions: 'Make risotto extra creamy please! No garlic in sparkler.',
     couponApplied: 'SAVOUR20'
@@ -297,38 +512,12 @@ export const INITIAL_ORDERS: Order[] = [
     tip: 6,
     total: 65.4,
     status: 'placed',
-    created_at: now - 1000 * 60 * 3,
-    updated_at: now - 1000 * 60 * 3,
+    created_at: Date.now() - 1000 * 60 * 3,
+    updated_at: Date.now() - 1000 * 60 * 3,
     status_history: [
-      { status: 'placed', changed_at: now - 1000 * 60 * 3 }
+      { status: 'placed', changed_at: Date.now() - 1000 * 60 * 3 }
     ],
     specialInstructions: 'Medium well burgers.'
-  },
-  {
-    id: 'ORD-7819',
-    orderNumber: '7819',
-    table_id: 'T-08',
-    table_number: 8,
-    customerName: 'Samir Patel',
-    items: [
-      { menu_item_id: 'dish-6', name: 'Charcoal Grilled Lamb Chops', qty: 1, price: 34, is_veg: false },
-      { menu_item_id: 'dish-3', name: 'Burrata & Heirloom Tomato Tartine', qty: 1, price: 16, is_veg: true },
-      { menu_item_id: 'dish-10', name: 'Valrhona Chocolate Lava Dome', qty: 1, price: 14, is_veg: true }
-    ],
-    subtotal: 64,
-    discount: 10,
-    tax: 5.12,
-    tip: 8,
-    total: 67.12,
-    status: 'ready',
-    created_at: now - 1000 * 60 * 16,
-    updated_at: now - 1000 * 60 * 1,
-    status_history: [
-      { status: 'placed', changed_at: now - 1000 * 60 * 16 },
-      { status: 'accepted', changed_at: now - 1000 * 60 * 14 },
-      { status: 'preparing', changed_at: now - 1000 * 60 * 10 },
-      { status: 'ready', changed_at: now - 1000 * 60 * 1 }
-    ],
-    couponApplied: 'WELCOME10'
   }
 ];
+

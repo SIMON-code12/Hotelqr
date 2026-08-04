@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef, useCallback } from 'react';
 import { useStore } from '../../context/StoreContext';
 import type { MenuItem, OrderStatus } from '../../types';
-import { Search, Plus, SlidersHorizontal, Heart, ShoppingBag, Utensils, Clock, Check, ArrowRight, Minus, Trash2 } from 'lucide-react';
+import { Search, Plus, SlidersHorizontal, Heart, ShoppingBag, Utensils, Clock, Check, ArrowRight, Minus, Trash2, Star, ChefHat, Ticket } from 'lucide-react';
 import { FoodDetailModal } from './FoodDetailModal';
 
 /**
@@ -64,7 +64,12 @@ const CATEGORIES = [
   { id: 'Desserts', label: 'Desserts' },
 ];
 
-export const CustomerView: React.FC = () => {
+interface CustomerViewProps {
+  onOpenCart?: () => void;
+  onOpenOrderTracker?: () => void;
+}
+
+export const CustomerView: React.FC<CustomerViewProps> = ({ onOpenCart, onOpenOrderTracker }) => {
   const {
     menuItems,
     selectedTableId,
@@ -169,36 +174,197 @@ export const CustomerView: React.FC = () => {
 
   return (
     <div style={{ background: 'var(--bg-base)', minHeight: '100vh', color: 'var(--text-primary)', paddingBottom: 100 }} className="cust-glow-bg font-inter">
-      <div style={{ maxWidth: 480, margin: '0 auto', padding: '0 16px' }}>
+      <div style={{ maxWidth: 480, margin: '0 auto' }}>
 
-        {/* Top Header / Table badge */}
-        <div style={{ paddingTop: 20, paddingBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-              <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--accent-orange)', background: 'rgba(255,138,52,0.15)', padding: '3px 10px', borderRadius: 'var(--radius-pill)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Table {selectedTableId}
-              </span>
-              <select
-                value={selectedTableId}
-                onChange={(e) => setSelectedTableId(e.target.value)}
-                style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', fontSize: '0.75rem', cursor: 'pointer', outline: 'none' }}
-              >
-                {tables.map((t) => (
-                  <option key={t.id} value={t.id} style={{ background: '#2B1F17', color: '#FFF' }}>
-                    T-{t.table_number}
-                  </option>
-                ))}
-              </select>
+        {/* ═══════════════════ HERO HEADER ═══════════════════ */}
+        <div style={{
+          position: 'relative',
+          overflow: 'hidden',
+          background: 'linear-gradient(160deg, #3D1A06 0%, #2A1208 40%, #1C0E06 70%, #1C1410 100%)',
+          paddingBottom: 0,
+        }}>
+          {/* Decorative background orbs */}
+          <div className="hero-orb" style={{
+            position: 'absolute', top: -60, right: -60, width: 220, height: 220,
+            borderRadius: '50%',
+            background: 'radial-gradient(circle, rgba(255,138,52,0.18) 0%, transparent 70%)',
+            pointerEvents: 'none',
+          }} />
+          <div style={{
+            position: 'absolute', bottom: 0, left: -40, width: 160, height: 160,
+            borderRadius: '50%',
+            background: 'radial-gradient(circle, rgba(217,166,46,0.12) 0%, transparent 70%)',
+            pointerEvents: 'none',
+            animationDelay: '3s',
+          }} className="hero-orb" />
+
+          {/* Top action bar */}
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '16px 20px 0',
+          }}>
+            {/* Table badge + switcher */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                background: 'rgba(255,138,52,0.15)',
+                border: '1px solid rgba(255,138,52,0.3)',
+                borderRadius: 999, padding: '5px 12px',
+              }}>
+                <span className="live-dot" style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--accent-orange)', display: 'inline-block' }} />
+                <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--accent-orange)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                  Table
+                </span>
+                <select
+                  value={selectedTableId}
+                  onChange={(e) => setSelectedTableId(e.target.value)}
+                  style={{
+                    background: 'transparent', border: 'none',
+                    color: 'var(--accent-orange)', fontSize: '0.7rem',
+                    fontWeight: 700, cursor: 'pointer', outline: 'none',
+                    letterSpacing: '0.04em',
+                  }}
+                >
+                  {tables.map((t) => (
+                    <option key={t.id} value={t.id} style={{ background: '#2B1F17', color: '#FFF' }}>
+                      {t.id}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
-            <h1 className="font-sora" style={{ fontSize: 'var(--text-hero)', fontWeight: 700, color: 'var(--text-primary)', margin: 0, lineHeight: 1.2 }}>
+
+            {/* Right: Order tracker + Cart */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              {activeOrderForTable && (
+                <button
+                  onClick={() => {
+                    if (onOpenOrderTracker) {
+                      onOpenOrderTracker();
+                    } else {
+                      window.dispatchEvent(new CustomEvent('open-order-tracker'));
+                    }
+                  }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 6,
+                    padding: '6px 12px',
+                    borderRadius: 999,
+                    border: '1px solid var(--accent-amber)',
+                    background: 'rgba(217,166,46,0.15)',
+                    fontSize: '0.7rem', fontWeight: 700,
+                    color: 'var(--accent-amber)', cursor: 'pointer',
+                    letterSpacing: '0.03em',
+                  }}
+                >
+                  <Clock style={{ width: 12, height: 12 }} />
+                  #{activeOrderForTable.orderNumber}
+                </button>
+              )}
+              <button
+                onClick={() => {
+                  if (onOpenCart) {
+                    onOpenCart();
+                  } else {
+                    window.dispatchEvent(new CustomEvent('open-cart-drawer'));
+                  }
+                }}
+                style={{
+                  position: 'relative', width: 40, height: 40,
+                  borderRadius: 12,
+                  background: totalCartQty > 0 ? 'var(--accent-orange)' : 'rgba(255,255,255,0.08)',
+                  border: `1px solid ${totalCartQty > 0 ? 'var(--accent-orange)' : 'rgba(255,255,255,0.12)'}`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  boxShadow: totalCartQty > 0 ? '0 4px 14px rgba(255,138,52,0.4)' : 'none',
+                }}
+              >
+                <ShoppingBag style={{ width: 18, height: 18, color: totalCartQty > 0 ? '#FFF' : 'var(--text-secondary)' }} />
+                {totalCartQty > 0 && (
+                  <span style={{
+                    position: 'absolute', top: -6, right: -6,
+                    minWidth: 18, height: 18, borderRadius: 999,
+                    background: '#FFF', color: 'var(--accent-orange)',
+                    fontSize: '0.6rem', fontWeight: 800,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    padding: '0 4px', boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+                  }}>{totalCartQty}</span>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Restaurant Branding */}
+          <div className="animate-slide-up" style={{ padding: '20px 20px 0', textAlign: 'center', position: 'relative', zIndex: 2 }}>
+            <div style={{
+              width: 64, height: 64, borderRadius: '50%',
+              background: 'linear-gradient(135deg, rgba(255,138,52,0.25) 0%, rgba(217,166,46,0.2) 100%)',
+              border: '2px solid rgba(255,138,52,0.4)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              margin: '0 auto 14px',
+              boxShadow: '0 0 30px rgba(255,138,52,0.2), inset 0 1px 0 rgba(255,255,255,0.1)',
+            }}>
+              <ChefHat style={{ width: 30, height: 30, color: 'var(--accent-orange)' }} />
+            </div>
+
+            <h1 className="font-sora" style={{
+              fontSize: '2rem', fontWeight: 800,
+              color: '#FFFFFF',
+              margin: '0 0 6px',
+              lineHeight: 1.15,
+              letterSpacing: '-0.02em',
+              textShadow: '0 2px 20px rgba(0,0,0,0.5)',
+            }}>
               Savour Bistro
             </h1>
-          </div>
 
-          <div style={{ width: 42, height: 42, borderRadius: '50%', background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Utensils style={{ width: 20, height: 20, color: 'var(--accent-orange)' }} />
+            <p style={{
+              fontSize: '0.8rem', color: 'rgba(255,255,255,0.5)',
+              margin: '0 0 18px', letterSpacing: '0.04em',
+            }}>
+              Fine Dining · Kerala Cuisine · Since 2018
+            </p>
+
+            {/* Stats bar */}
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 24,
+              padding: '14px 20px',
+              background: 'rgba(255,255,255,0.05)',
+              borderRadius: '16px 16px 0 0',
+              border: '1px solid rgba(255,255,255,0.06)',
+              borderBottom: 'none',
+              marginBottom: 0,
+            }}>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, marginBottom: 2 }}>
+                  <Star style={{ width: 13, height: 13, color: '#FFB800', fill: '#FFB800' }} />
+                  <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#FFF' }}>4.9</span>
+                </div>
+                <span style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.4)', letterSpacing: '0.03em' }}>RATING</span>
+              </div>
+              <div style={{ width: 1, height: 28, background: 'rgba(255,255,255,0.1)' }} />
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, marginBottom: 2 }}>
+                  <Clock style={{ width: 13, height: 13, color: 'var(--accent-green)' }} />
+                  <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#FFF' }}>15</span>
+                </div>
+                <span style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.4)', letterSpacing: '0.03em' }}>MIN AVG</span>
+              </div>
+              <div style={{ width: 1, height: 28, background: 'rgba(255,255,255,0.1)' }} />
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, marginBottom: 2 }}>
+                  <Utensils style={{ width: 13, height: 13, color: 'var(--accent-blue)' }} />
+                  <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#FFF' }}>{menuItems.length}+</span>
+                </div>
+                <span style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.4)', letterSpacing: '0.03em' }}>DISHES</span>
+              </div>
+            </div>
           </div>
         </div>
+        {/* ═══════════════════ END HERO ═══════════════════ */}
+
+
+        <div style={{ padding: '20px 16px 0' }}>
 
         {/* -------------------- MAIN MENU TAB -------------------- */}
         {activeTab === 'menu' && (
@@ -844,7 +1010,8 @@ export const CustomerView: React.FC = () => {
           </div>
         )}
 
-      </div>
+        </div>{/* close padding wrapper div */}
+      </div>{/* close maxWidth wrapper */}
 
       {/* -------------------- FIXED BOTTOM NAVIGATION BAR -------------------- */}
       <div
