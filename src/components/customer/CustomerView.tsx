@@ -137,6 +137,20 @@ export const CustomerView: React.FC<CustomerViewProps> = ({ onOpenCart, onOpenOr
     return menuItems.find((item) => item.categoryName === 'Chef Specials') || menuItems[0];
   }, [menuItems]);
 
+  const averageRating = useMemo(() => {
+    const ratedItems = menuItems.filter((i) => i.rating != null && i.rating > 0);
+    if (ratedItems.length === 0) return '4.8';
+    const sum = ratedItems.reduce((acc, i) => acc + (i.rating || 0), 0);
+    return (sum / ratedItems.length).toFixed(1);
+  }, [menuItems]);
+
+  const averagePrepTime = useMemo(() => {
+    const itemsWithPrep = menuItems.filter((i) => i.prepTimeMinutes != null && i.prepTimeMinutes > 0);
+    if (itemsWithPrep.length === 0) return 15;
+    const sum = itemsWithPrep.reduce((acc, i) => acc + (i.prepTimeMinutes || 0), 0);
+    return Math.round(sum / itemsWithPrep.length);
+  }, [menuItems]);
+
   const totalCartQty = cart.reduce((sum, item) => sum + item.quantity, 0);
 
   const handleApplyCoupon = () => {
@@ -338,7 +352,7 @@ export const CustomerView: React.FC<CustomerViewProps> = ({ onOpenCart, onOpenOr
               <div style={{ textAlign: 'center' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, marginBottom: 2 }}>
                   <Star style={{ width: 13, height: 13, color: '#FFB800', fill: '#FFB800' }} />
-                  <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#FFF' }}>4.9</span>
+                  <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#FFF' }}>{averageRating}</span>
                 </div>
                 <span style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.4)', letterSpacing: '0.03em' }}>RATING</span>
               </div>
@@ -346,7 +360,7 @@ export const CustomerView: React.FC<CustomerViewProps> = ({ onOpenCart, onOpenOr
               <div style={{ textAlign: 'center' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, marginBottom: 2 }}>
                   <Clock style={{ width: 13, height: 13, color: 'var(--accent-green)' }} />
-                  <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#FFF' }}>15</span>
+                  <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#FFF' }}>{averagePrepTime}</span>
                 </div>
                 <span style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.4)', letterSpacing: '0.03em' }}>MIN AVG</span>
               </div>
