@@ -1,8 +1,9 @@
 import React, { useState, useMemo, useRef, useCallback } from 'react';
 import { useStore } from '../../context/StoreContext';
 import type { MenuItem, OrderStatus } from '../../types';
-import { Search, Plus, SlidersHorizontal, Heart, ShoppingBag, Utensils, Clock, Check, ArrowRight, Minus, Trash2, Star, ChefHat } from 'lucide-react';
+import { Search, Plus, SlidersHorizontal, Heart, ShoppingBag, Utensils, Clock, Check, ArrowRight, Minus, Trash2, Star, ChefHat, Gift } from 'lucide-react';
 import { FoodDetailModal } from './FoodDetailModal';
+import { SpinWheelGame } from './SpinWheelGame';
 
 /**
  * Hook: enables click-and-drag horizontal scrolling for a container.
@@ -85,7 +86,7 @@ export const CustomerView: React.FC<CustomerViewProps> = ({ onOpenCart, onOpenOr
     addToast
   } = useStore();
 
-  const [activeTab, setActiveTab] = useState<'menu' | 'cart' | 'status'>('menu');
+  const [activeTab, setActiveTab] = useState<'menu' | 'cart' | 'status' | 'games'>('menu');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [activeItemModal, setActiveItemModal] = useState<MenuItem | null>(null);
@@ -1024,6 +1025,13 @@ export const CustomerView: React.FC<CustomerViewProps> = ({ onOpenCart, onOpenOr
           </div>
         )}
 
+        {/* -------------------- GAMES TAB -------------------- */}
+        {activeTab === 'games' && (
+          <div style={{ paddingTop: 10 }}>
+            <SpinWheelGame />
+          </div>
+        )}
+
         </div>{/* close padding wrapper div */}
       </div>{/* close maxWidth wrapper */}
 
@@ -1045,7 +1053,8 @@ export const CustomerView: React.FC<CustomerViewProps> = ({ onOpenCart, onOpenOr
           {[
             { key: 'menu', label: 'Menu', icon: Utensils },
             { key: 'cart', label: 'Cart', icon: ShoppingBag, badge: totalCartQty },
-            { key: 'status', label: 'Order Status', icon: Clock, badge: activeOrderForTable ? 1 : 0 },
+            { key: 'status', label: 'Status', icon: Clock, badge: activeOrderForTable ? 1 : 0 },
+            { key: 'games', label: 'Games', icon: Gift },
           ].map((nav) => {
             const Icon = nav.icon;
             const isActive = activeTab === nav.key;
