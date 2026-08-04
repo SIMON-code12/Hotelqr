@@ -74,7 +74,11 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart, onOpenOrderTracker }
             ]).map((tab) => (
               <button
                 key={tab.key}
-                onClick={() => setRole(tab.key)}
+                onClick={() => {
+                  setRole(tab.key);
+                  const cleanPath = tab.key === 'customer' ? '/' : `/${tab.key}`;
+                  window.history.pushState({}, '', cleanPath);
+                }}
                 style={{
                   padding: '6px 14px',
                   borderRadius: 'var(--radius-sm)',
@@ -120,7 +124,12 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart, onOpenOrderTracker }
           {role === 'simulator' && (
             <select
               value={role}
-              onChange={(e) => setRole(e.target.value as RoleMode)}
+              onChange={(e) => {
+                const targetVal = e.target.value as RoleMode;
+                setRole(targetVal);
+                const cleanPath = targetVal === 'customer' ? '/' : `/${targetVal}`;
+                window.history.pushState({}, '', cleanPath);
+              }}
               className="md:hidden font-ticket"
               style={{
                 background: 'var(--ink-700)',

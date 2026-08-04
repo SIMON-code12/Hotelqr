@@ -30,18 +30,45 @@ const MainAppContent: React.FC = () => {
     };
   }, []);
 
-  // Sync URL Params on load (e.g. ?table=T-05 or ?view=kitchen or ?view=simulator)
+  // Sync URL routes, pathnames, hashes, and params on load and popstate
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const tableParam = params.get('table');
-    const viewParam = params.get('view');
+    const parseUrl = () => {
+      const path = window.location.pathname.toLowerCase();
+      const hash = window.location.hash.toLowerCase();
+      const params = new URLSearchParams(window.location.search);
+      
+      let detectedRole: RoleMode = 'customer';
+      if (path.includes('/kitchen') || hash.includes('/kitchen') || params.get('view') === 'kitchen') {
+        detectedRole = 'kitchen';
+      } else if (path.includes('/admin') || hash.includes('/admin') || params.get('view') === 'admin') {
+        detectedRole = 'admin';
+      } else if (path.includes('/simulator') || hash.includes('/simulator') || params.get('view') === 'simulator') {
+        detectedRole = 'simulator';
+      } else if (path.includes('/customer') || hash.includes('/customer') || params.get('view') === 'customer') {
+        detectedRole = 'customer';
+      }
+      
+      setRole(detectedRole);
 
-    if (tableParam) {
-      setSelectedTableId(tableParam.toUpperCase());
-    }
-    if (viewParam && (viewParam === 'customer' || viewParam === 'kitchen' || viewParam === 'admin' || viewParam === 'simulator')) {
-      setRole(viewParam as RoleMode);
-    }
+      // Parse table from query params or pathname (e.g. /table/T-04)
+      const tableParam = params.get('table');
+      if (tableParam) {
+        setSelectedTableId(tableParam.toUpperCase());
+      } else {
+        const tableMatch = path.match(/\/table\/(t-\d+)/i) || hash.match(/\/table\/(t-\d+)/i);
+        if (tableMatch && tableMatch[1]) {
+          setSelectedTableId(tableMatch[1].toUpperCase());
+        }
+      }
+    };
+
+    parseUrl();
+
+    // Listen for browser forward/back popstate triggers
+    window.addEventListener('popstate', parseUrl);
+    return () => {
+      window.removeEventListener('popstate', parseUrl);
+    };
   }, [setRole, setSelectedTableId]);
 
   return (
