@@ -326,7 +326,7 @@ export const AdminView: React.FC = () => {
                       <YAxis stroke="var(--text-muted)" fontSize={11} tick={{ fill: 'var(--text-muted)' }} tickLine={false} axisLine={false} tickFormatter={(v) => `₹${v}`} />
                       <Tooltip
                         contentStyle={tooltipStyle}
-                        formatter={(value: number) => [`₹${value.toLocaleString()}`, 'Revenue']}
+                        formatter={(value: any) => [`₹${Number(value).toLocaleString()}`, 'Revenue']}
                         labelStyle={{ color: 'var(--text-secondary)', fontSize: 12 }}
                       />
                       <Area

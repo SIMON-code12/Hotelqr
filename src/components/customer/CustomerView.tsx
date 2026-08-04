@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef, useCallback } from 'react';
 import { useStore } from '../../context/StoreContext';
 import type { MenuItem, OrderStatus } from '../../types';
-import { Search, Plus, SlidersHorizontal, Heart, ShoppingBag, Utensils, Clock, Check, ArrowRight, Minus, Trash2, Star, ChefHat, Ticket } from 'lucide-react';
+import { Search, Plus, SlidersHorizontal, Heart, ShoppingBag, Utensils, Clock, Check, ArrowRight, Minus, Trash2, Star, ChefHat } from 'lucide-react';
 import { FoodDetailModal } from './FoodDetailModal';
 
 /**

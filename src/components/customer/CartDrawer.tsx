@@ -13,7 +13,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onOrder
   const [couponCode, setCouponCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState('');
   const [discountAmount, setDiscountAmount] = useState(0);
-  const [tipAmount, setTipAmount] = useState(0);
+  const [tipAmount] = useState<number>(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
