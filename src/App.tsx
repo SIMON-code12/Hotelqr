@@ -9,12 +9,17 @@ import { MultiDashboardView } from './components/common/MultiDashboardView';
 import { CartDrawer } from './components/customer/CartDrawer';
 import { OrderTrackerModal } from './components/customer/OrderTrackerModal';
 import { TableServiceFAB } from './components/customer/TableServiceFAB';
+import { PinLogin } from './components/common/PinLogin';
 import type { RoleMode } from './types';
 
 const MainAppContent: React.FC = () => {
   const { role, setRole, setSelectedTableId } = useStore();
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isOrderTrackerOpen, setIsOrderTrackerOpen] = useState(false);
+  
+  // Auth state
+  const [isAdminAuth, setIsAdminAuth] = useState(() => sessionStorage.getItem('auth_admin') === 'true');
+  const [isKitchenAuth, setIsKitchenAuth] = useState(() => sessionStorage.getItem('auth_kitchen') === 'true');
 
   // Global drawer events
   useEffect(() => {
@@ -90,8 +95,15 @@ const MainAppContent: React.FC = () => {
         padding: role === 'customer' ? '0' : '24px 16px',
       }}>
         {role === 'customer' && <CustomerView onOpenCart={() => setIsCartOpen(true)} onOpenOrderTracker={() => setIsOrderTrackerOpen(true)} />}
-        {role === 'kitchen' && <KitchenView />}
-        {role === 'admin' && <AdminView />}
+        
+        {role === 'kitchen' && (
+          isKitchenAuth ? <KitchenView /> : <PinLogin roleName="Kitchen" expectedPin="1234" onSuccess={() => { setIsKitchenAuth(true); sessionStorage.setItem('auth_kitchen', 'true'); }} />
+        )}
+        
+        {role === 'admin' && (
+          isAdminAuth ? <AdminView /> : <PinLogin roleName="Admin" expectedPin="5678" onSuccess={() => { setIsAdminAuth(true); sessionStorage.setItem('auth_admin', 'true'); }} />
+        )}
+        
         {role === 'simulator' && <MultiDashboardView />}
       </main>
 
