@@ -32,7 +32,7 @@ const selectStyle: React.CSSProperties = {
 };
 
 export const AdminView: React.FC = () => {
-  const { orders, menuItems, toggleMenuItemStock, updateMenuItemPrice, tables, updateOrderStatus, addMenuItem, updateMenuItem } = useStore();
+  const { orders, menuItems, toggleMenuItemStock, updateMenuItemPrice, tables, updateOrderStatus, addMenuItem, updateMenuItem, updateOrderTable } = useStore();
 
   const [activeTab, setActiveTab] = useState<'overview' | 'orders' | 'menu' | 'tables'>('overview');
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
@@ -42,7 +42,7 @@ export const AdminView: React.FC = () => {
   const [tempPrice, setTempPrice] = useState<number>(0);
 
   // Full dish edit modal state
-  const [editingItem, setEditingItem] = useState<null | { id: string; name: string; categoryName: string; price: number; description: string; image_url: string; is_veg: boolean }>(null);
+  const [editingItem, setEditingItem] = useState<null | { id: string; name: string; categoryName: string; price: number; description: string; image_url: string; is_veg: boolean; spice_level?: 'none' | 'mild' | 'spicy' }>(null);
 
   const [isAddItemOpen, setIsAddItemOpen] = useState(false);
   const [newItemName, setNewItemName] = useState('');
@@ -50,6 +50,7 @@ export const AdminView: React.FC = () => {
   const [newItemPrice, setNewItemPrice] = useState('');
   const [newItemDesc, setNewItemDesc] = useState('');
   const [newItemVeg, setNewItemVeg] = useState(false);
+  const [newItemSpice, setNewItemSpice] = useState<'none' | 'mild' | 'spicy'>('none');
   const [newItemImage, setNewItemImage] = useState('');
 
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -146,12 +147,13 @@ export const AdminView: React.FC = () => {
       description: newItemDesc || "Chef's special creation.",
       image_url: newItemImage || 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=400&q=80',
       is_veg: newItemVeg,
+      spice_level: newItemSpice,
       is_available: true,
       inStock: true,
       is_bestseller: false,
     });
     setNewItemName(''); setNewItemCategory('Mains'); setNewItemPrice('');
-    setNewItemDesc(''); setNewItemVeg(false); setNewItemImage('');
+    setNewItemDesc(''); setNewItemVeg(false); setNewItemSpice('none'); setNewItemImage('');
     setIsAddItemOpen(false);
   };
 
@@ -444,8 +446,28 @@ export const AdminView: React.FC = () => {
                       <td className="font-sora" style={{ padding: '14px 16px', fontWeight: 700, color: 'var(--accent-orange)' }}>
                         #{o.orderNumber}
                       </td>
-                      <td style={{ padding: '14px 16px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                        {o.table_id}
+                      <td style={{ padding: '14px 16px' }}>
+                        <select
+                          value={o.table_id}
+                          onChange={(e) => updateOrderTable && updateOrderTable(o.id, e.target.value)}
+                          style={{
+                            background: 'var(--surface-raised)',
+                            border: '1px solid rgba(255,255,255,0.08)',
+                            color: 'var(--text-primary)',
+                            borderRadius: 6,
+                            padding: '4px 8px',
+                            fontSize: '0.8rem',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            outline: 'none',
+                          }}
+                        >
+                          {tables.map((t) => (
+                            <option key={t.id} value={t.id} style={{ background: '#1C1410' }}>
+                              {t.id}
+                            </option>
+                          ))}
+                        </select>
                       </td>
                       <td style={{ padding: '14px 16px', color: 'var(--text-secondary)' }}>
                         {new Date(o.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -614,6 +636,7 @@ export const AdminView: React.FC = () => {
                               description: item.description,
                               image_url: item.image_url || item.image || '',
                               is_veg: item.is_veg,
+                              spice_level: item.spice_level || 'none',
                             })}
                             style={{
                               padding: '6px 14px', borderRadius: 'var(--radius-pill)',
@@ -810,19 +833,33 @@ export const AdminView: React.FC = () => {
                 />
               </div>
 
-              {/* Veg Toggle */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div
-                  onClick={() => setNewItemVeg(!newItemVeg)}
-                  className={`cust-toggle-track${newItemVeg ? ' active' : ''}`}
-                >
-                  <div className="cust-toggle-thumb" />
+              {/* Veg Toggle & Spice Level Grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div
+                    onClick={() => setNewItemVeg(!newItemVeg)}
+                    className={`cust-toggle-track${newItemVeg ? ' active' : ''}`}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <div className="cust-toggle-thumb" />
+                  </div>
+                  <label style={{ fontSize: '0.875rem', color: 'var(--text-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+                    onClick={() => setNewItemVeg(!newItemVeg)}>
+                    Vegetarian
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent-green)' }} />
+                  </label>
                 </div>
-                <label style={{ fontSize: '0.875rem', color: 'var(--text-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
-                  onClick={() => setNewItemVeg(!newItemVeg)}>
-                  Vegetarian
-                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent-green)' }} />
-                </label>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                    Spice Level
+                  </label>
+                  <select value={newItemSpice} onChange={(e) => setNewItemSpice(e.target.value as any)} style={selectStyle}>
+                    <option value="none">🟢 No Spice / Sweet</option>
+                    <option value="mild">🌶️ Mild Spice</option>
+                    <option value="spicy">🔥 Spicy</option>
+                  </select>
+                </div>
               </div>
 
               {/* Submit / Cancel */}
@@ -934,8 +971,8 @@ export const AdminView: React.FC = () => {
                   style={inputStyle}
                 />
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <label style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, alignItems: 'center' }}>
+                <label style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, marginTop: 12 }}>
                   <input
                     type="checkbox"
                     checked={editingItem.is_veg}
@@ -943,6 +980,18 @@ export const AdminView: React.FC = () => {
                   />
                   Vegetarian (Veg)
                 </label>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Spice Level</label>
+                  <select
+                    value={editingItem.spice_level || 'none'}
+                    onChange={(e) => setEditingItem({ ...editingItem, spice_level: e.target.value as any })}
+                    style={selectStyle}
+                  >
+                    <option value="none">🟢 No Spice / Sweet</option>
+                    <option value="mild">🌶️ Mild Spice</option>
+                    <option value="spicy">🔥 Spicy</option>
+                  </select>
+                </div>
               </div>
 
               <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
@@ -959,6 +1008,7 @@ export const AdminView: React.FC = () => {
                       description: editingItem.description,
                       image_url: editingItem.image_url,
                       is_veg: editingItem.is_veg,
+                      spice_level: editingItem.spice_level,
                     });
                     setEditingItem(null);
                   }}

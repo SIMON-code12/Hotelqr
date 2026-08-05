@@ -18,6 +18,7 @@ export interface MenuItem {
   image_url: string;
   image?: string; // fallback mapping
   is_veg: boolean;
+  spice_level?: 'none' | 'mild' | 'spicy';
   is_available: boolean;
   inStock?: boolean; // fallback mapping
   is_bestseller: boolean;

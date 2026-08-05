@@ -33,6 +33,7 @@ interface StoreContextType {
   placeOrder: (specialInstructions?: string, couponApplied?: string, tipAmount?: number) => Order;
   updateOrderStatus: (orderId: string, newStatus: OrderStatus) => void;
   undoOrderStatus: (orderId: string) => void;
+  updateOrderTable: (orderId: string, newTableId: string) => void;
   
   // Waiter Request Actions
   createWaiterRequest: (type: WaiterRequestType, label: string) => void;
@@ -129,6 +130,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (payload.newStatus === 'ready') {
           sounds.playOrderReadyMelody();
         }
+      } else if (type === 'UPDATE_ORDER_TABLE') {
+        setOrders((prev) =>
+          prev.map((o) => (o.id === payload.orderId ? { ...o, table_id: payload.newTableId, table_number: payload.newTableNumber } : o))
+        );
       } else if (type === 'WAITER_REQUEST') {
         setWaiterRequests((prev) => [payload, ...prev]);
         sounds.playWaiterCallChime();
@@ -341,6 +346,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     );
   };
 
+  const updateOrderTable = (orderId: string, newTableId: string) => {
+    const tableNumber = parseInt(newTableId.replace(/\D/g, ''), 10) || 1;
+    setOrders((prev) =>
+      prev.map((o) => (o.id === orderId ? { ...o, table_id: newTableId, table_number: tableNumber } : o))
+    );
+    broadcastSync({ type: 'UPDATE_ORDER_TABLE', payload: { orderId, newTableId, newTableNumber: tableNumber } });
+    addToast('Table Updated', `Order transferred to Table ${newTableId}`, 'success');
+  };
+
   const createWaiterRequest = (type: WaiterRequestType, label: string) => {
     const req: WaiterRequest = {
       id: `req-${Date.now()}`,
@@ -427,6 +441,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         placeOrder,
         updateOrderStatus,
         undoOrderStatus,
+        updateOrderTable,
         createWaiterRequest,
         resolveWaiterRequest,
         addMenuItem,

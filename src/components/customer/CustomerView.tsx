@@ -74,8 +74,6 @@ export const CustomerView: React.FC<CustomerViewProps> = ({ onOpenCart, onOpenOr
   const {
     menuItems,
     selectedTableId,
-    setSelectedTableId,
-    tables,
     addToCart,
     cart,
     cartSubtotal,
@@ -97,6 +95,7 @@ export const CustomerView: React.FC<CustomerViewProps> = ({ onOpenCart, onOpenOr
   // Filter panel state
   const [showFilterPanel, setShowFilterPanel] = useState(false);
   const [vegFilter, setVegFilter] = useState<'all' | 'veg' | 'non-veg'>('all');
+  const [spiceFilter, setSpiceFilter] = useState<'all' | 'none' | 'mild' | 'spicy'>('all');
 
   // Allergen / dietary preferences
   const [allergenNote, setAllergenNote] = useState(() => localStorage.getItem('savour_allergen_note') || '');
@@ -126,6 +125,14 @@ export const CustomerView: React.FC<CustomerViewProps> = ({ onOpenCart, onOpenOr
     );
   }, [orders, selectedTableId]);
 
+  const tableOrders = useMemo(() => {
+    return orders.filter((o) => o.table_id === selectedTableId);
+  }, [orders, selectedTableId]);
+
+  const activeOrdersCount = useMemo(() => {
+    return tableOrders.filter((o) => ['placed', 'accepted', 'preparing', 'ready'].includes(o.status)).length;
+  }, [tableOrders]);
+
   const filteredDishes = useMemo(() => {
     return menuItems.filter((item) => {
       const cat = item.categoryName || (item as any).category;
@@ -133,6 +140,8 @@ export const CustomerView: React.FC<CustomerViewProps> = ({ onOpenCart, onOpenOr
       // Veg filter toggle
       if (vegFilter === 'veg' && !item.is_veg) return false;
       if (vegFilter === 'non-veg' && item.is_veg) return false;
+      // Spice level filter toggle
+      if (spiceFilter !== 'all' && (item.spice_level || 'none') !== spiceFilter) return false;
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         // Allow searching "veg" or "vegetarian" as a keyword
@@ -144,7 +153,7 @@ export const CustomerView: React.FC<CustomerViewProps> = ({ onOpenCart, onOpenOr
       }
       return true;
     });
-  }, [menuItems, selectedCategory, searchQuery, vegFilter]);
+  }, [menuItems, selectedCategory, searchQuery, vegFilter, spiceFilter]);
 
   const popularDishes = useMemo(() => {
     return menuItems.filter((item) => item.is_bestseller || (item.rating && item.rating >= 4.8)).slice(0, 5);
@@ -247,22 +256,15 @@ export const CustomerView: React.FC<CustomerViewProps> = ({ onOpenCart, onOpenOr
                 <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--accent-orange)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                   Table
                 </span>
-                <select
-                  value={selectedTableId}
-                  onChange={(e) => setSelectedTableId(e.target.value)}
+                <span
                   style={{
-                    background: 'transparent', border: 'none',
                     color: 'var(--accent-orange)', fontSize: '0.7rem',
-                    fontWeight: 700, cursor: 'pointer', outline: 'none',
+                    fontWeight: 700,
                     letterSpacing: '0.04em',
                   }}
                 >
-                  {tables.map((t) => (
-                    <option key={t.id} value={t.id} style={{ background: '#2B1F17', color: '#FFF' }}>
-                      {t.id}
-                    </option>
-                  ))}
-                </select>
+                  {selectedTableId}
+                </span>
               </div>
             </div>
 
@@ -428,15 +430,15 @@ export const CustomerView: React.FC<CustomerViewProps> = ({ onOpenCart, onOpenOr
                 style={{
                   width: 48, height: 48,
                   borderRadius: 'var(--radius-card)',
-                  background: showFilterPanel || vegFilter !== 'all' ? 'var(--accent-orange)' : 'var(--surface)',
-                  border: `1px solid ${showFilterPanel || vegFilter !== 'all' ? 'var(--accent-orange)' : 'rgba(255,255,255,0.08)'}`,
+                  background: showFilterPanel || vegFilter !== 'all' || spiceFilter !== 'all' ? 'var(--accent-orange)' : 'var(--surface)',
+                  border: `1px solid ${showFilterPanel || vegFilter !== 'all' || spiceFilter !== 'all' ? 'var(--accent-orange)' : 'rgba(255,255,255,0.08)'}`,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   cursor: 'pointer', transition: 'all 0.2s',
                   position: 'relative',
                 }}
               >
-                <SlidersHorizontal style={{ width: 18, height: 18, color: showFilterPanel || vegFilter !== 'all' ? '#FFF' : 'var(--text-primary)' }} />
-                {vegFilter !== 'all' && (
+                <SlidersHorizontal style={{ width: 18, height: 18, color: showFilterPanel || vegFilter !== 'all' || spiceFilter !== 'all' ? '#FFF' : 'var(--text-primary)' }} />
+                {(vegFilter !== 'all' || spiceFilter !== 'all') && (
                   <span style={{
                     position: 'absolute', top: -4, right: -4,
                     width: 10, height: 10, borderRadius: '50%',
@@ -454,22 +456,41 @@ export const CustomerView: React.FC<CustomerViewProps> = ({ onOpenCart, onOpenOr
                 borderRadius: 'var(--radius-card)',
                 padding: '14px 16px',
                 marginBottom: 14,
-                display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+                display: 'flex', flexDirection: 'column', gap: 12,
               }}>
-                <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Diet:</span>
-                {([['all', '🍽️ All'], ['veg', '🥗 Veg Only'], ['non-veg', '🍖 Non-Veg Only']] as const).map(([val, label]) => (
-                  <button
-                    key={val}
-                    onClick={() => setVegFilter(val)}
-                    style={{
-                      padding: '7px 14px', borderRadius: 999, fontSize: '0.8rem', fontWeight: 600,
-                      border: `1px solid ${vegFilter === val ? 'var(--accent-orange)' : 'rgba(255,255,255,0.1)'}`,
-                      background: vegFilter === val ? 'rgba(255,138,52,0.15)' : 'transparent',
-                      color: vegFilter === val ? 'var(--accent-orange)' : 'var(--text-secondary)',
-                      cursor: 'pointer', transition: 'all 0.15s',
-                    }}
-                  >{label}</button>
-                ))}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em', minWidth: 60 }}>Diet:</span>
+                  {([['all', '🍽️ All'], ['veg', '🥗 Veg Only'], ['non-veg', '🍖 Non-Veg Only']] as const).map(([val, label]) => (
+                    <button
+                      key={val}
+                      onClick={() => setVegFilter(val)}
+                      style={{
+                        padding: '7px 14px', borderRadius: 999, fontSize: '0.8rem', fontWeight: 600,
+                        border: `1px solid ${vegFilter === val ? 'var(--accent-orange)' : 'rgba(255,255,255,0.1)'}`,
+                        background: vegFilter === val ? 'rgba(255,138,52,0.15)' : 'transparent',
+                        color: vegFilter === val ? 'var(--accent-orange)' : 'var(--text-secondary)',
+                        cursor: 'pointer', transition: 'all 0.15s',
+                      }}
+                    >{label}</button>
+                  ))}
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: 10 }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em', minWidth: 60 }}>Spice:</span>
+                  {([['all', '🌶️ All Spice'], ['none', '🟢 Sweet / Mild'], ['mild', '🌶️ Medium'], ['spicy', '🔥 Spicy']] as const).map(([val, label]) => (
+                    <button
+                      key={val}
+                      onClick={() => setSpiceFilter(val)}
+                      style={{
+                        padding: '7px 14px', borderRadius: 999, fontSize: '0.8rem', fontWeight: 600,
+                        border: `1px solid ${spiceFilter === val ? 'var(--accent-orange)' : 'rgba(255,255,255,0.1)'}`,
+                        background: spiceFilter === val ? 'rgba(255,138,52,0.15)' : 'transparent',
+                        color: spiceFilter === val ? 'var(--accent-orange)' : 'var(--text-secondary)',
+                        cursor: 'pointer', transition: 'all 0.15s',
+                      }}
+                    >{label}</button>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -1043,14 +1064,14 @@ export const CustomerView: React.FC<CustomerViewProps> = ({ onOpenCart, onOpenOr
         {activeTab === 'status' && (
           <div style={{ paddingTop: 10 }}>
             <h2 className="font-sora" style={{ fontSize: '1.375rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 16 }}>
-              Order Status
+              Track Your Orders
             </h2>
 
-            {!activeOrderForTable ? (
+            {tableOrders.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '60px 16px', background: 'var(--surface)', borderRadius: 'var(--radius-card)' }}>
                 <Clock style={{ width: 48, height: 48, color: 'var(--text-secondary)', margin: '0 auto 12px' }} />
                 <h3 className="font-sora" style={{ fontSize: '1.125rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 }}>
-                  No Active Orders
+                  No Orders Placed Yet
                 </h3>
                 <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: 20 }}>
                   Place an order from the menu to track its preparation status.
@@ -1063,86 +1084,106 @@ export const CustomerView: React.FC<CustomerViewProps> = ({ onOpenCart, onOpenOr
                 </button>
               </div>
             ) : (
-              <div className="cust-card" style={{ padding: 20 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: 14, marginBottom: 20 }}>
-                  <div>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
-                      Table {activeOrderForTable.table_id}
-                    </span>
-                    <h3 className="font-sora" style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
-                      Ticket #{activeOrderForTable.orderNumber}
-                    </h3>
-                  </div>
-                  <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--accent-orange)', background: 'rgba(255,138,52,0.15)', padding: '4px 10px', borderRadius: 'var(--radius-pill)', textTransform: 'uppercase' }}>
-                    {activeOrderForTable.status}
-                  </span>
-                </div>
-
-                {/* Progress Stepper */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 20, position: 'relative', paddingLeft: 24, marginBottom: 24 }}>
-                  <div style={{ position: 'absolute', left: 9, top: 10, bottom: 10, width: 2, background: 'rgba(255,255,255,0.1)' }} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                {tableOrders.map((ticket) => {
+                  const dateStr = new Date(ticket.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                   
-                  {[
-                    { key: 'placed', label: 'Order Received' },
-                    { key: 'accepted', label: 'Accepted by Kitchen' },
-                    { key: 'preparing', label: 'Chef Preparing' },
-                    { key: 'ready', label: 'Ready for Serving' },
-                    { key: 'served', label: 'Served to Table' },
-                  ].map((step, idx) => {
-                    const statusSequence: OrderStatus[] = ['placed', 'accepted', 'preparing', 'ready', 'served', 'completed'];
-                    const currentIdx = statusSequence.indexOf(activeOrderForTable.status);
-                    const isDone = idx < currentIdx;
-                    const isActive = idx === currentIdx;
-
-                    return (
-                      <div key={step.key} style={{ display: 'flex', alignItems: 'center', gap: 12, position: 'relative' }}>
-                        <div
-                          style={{
-                            position: 'absolute',
-                            left: -20,
-                            width: 20,
-                            height: 20,
-                            borderRadius: '50%',
-                            background: isActive ? 'var(--accent-orange)' : isDone ? '#2E7D32' : 'var(--surface-raised)',
-                            border: isActive || isDone ? 'none' : '1px solid rgba(255,255,255,0.2)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            color: '#FFF',
-                          }}
-                        >
-                          {isDone && <Check style={{ width: 12, height: 12, strokeWidth: 3 }} />}
-                          {isActive && <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#FFF' }} />}
+                  return (
+                    <div key={ticket.id} className="cust-card animate-pop" style={{ padding: 20 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: 14, marginBottom: 16 }}>
+                        <div>
+                          <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 700 }}>
+                            Ticket #{ticket.orderNumber} · {dateStr}
+                          </span>
+                          <h3 className="font-sora" style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)', margin: '2px 0 0' }}>
+                            Order Status
+                          </h3>
                         </div>
-                        <span
-                          className="font-sora"
-                          style={{
-                            fontSize: '0.875rem',
-                            fontWeight: isActive ? 700 : 500,
-                            color: isActive ? 'var(--accent-orange)' : isDone ? 'var(--text-primary)' : 'var(--text-secondary)',
-                          }}
-                        >
-                          {step.label}
+                        <span style={{
+                          fontSize: '0.75rem', fontWeight: 700,
+                          color: ticket.status === 'completed' || ticket.status === 'served' ? '#34D399' : 'var(--accent-orange)',
+                          background: ticket.status === 'completed' || ticket.status === 'served' ? 'rgba(52,211,153,0.12)' : 'rgba(255,138,52,0.15)',
+                          padding: '4px 10px', borderRadius: 'var(--radius-pill)', textTransform: 'uppercase'
+                        }}>
+                          {ticket.status}
                         </span>
                       </div>
-                    );
-                  })}
-                </div>
 
-                {/* Ordered Items Summary */}
-                <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 14 }}>
-                  <h4 style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: 8 }}>
-                    Ordered Items
-                  </h4>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    {activeOrderForTable.items.map((i, index) => (
-                      <div key={index} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', color: 'var(--text-primary)' }}>
-                        <span>{i.qty}x {i.name}</span>
-                        <span className="font-sora" style={{ fontWeight: 600 }}>₹{(i.price * i.qty).toFixed(2)}</span>
+                      {/* Progress Stepper for placed/preparing/ready/served */}
+                      {ticket.status !== 'cancelled' && ticket.status !== 'completed' && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, position: 'relative', paddingLeft: 24, marginBottom: 20 }}>
+                          <div style={{ position: 'absolute', left: 9, top: 8, bottom: 8, width: 2, background: 'rgba(255,255,255,0.06)' }} />
+                          
+                          {[
+                            { key: 'placed', label: 'Order Received' },
+                            { key: 'accepted', label: 'Accepted by Kitchen' },
+                            { key: 'preparing', label: 'Chef Preparing' },
+                            { key: 'ready', label: 'Ready for Serving' },
+                            { key: 'served', label: 'Served to Table' },
+                          ].map((step, idx) => {
+                            const statusSequence: OrderStatus[] = ['placed', 'accepted', 'preparing', 'ready', 'served', 'completed'];
+                            const currentIdx = statusSequence.indexOf(ticket.status);
+                            const isDone = idx < currentIdx;
+                            const isActive = idx === currentIdx;
+
+                            return (
+                              <div key={step.key} style={{ display: 'flex', alignItems: 'center', gap: 12, position: 'relative' }}>
+                                <div
+                                  style={{
+                                    position: 'absolute',
+                                    left: -20,
+                                    width: 20,
+                                    height: 20,
+                                    borderRadius: '50%',
+                                    background: isActive ? 'var(--accent-orange)' : isDone ? '#2E7D32' : 'var(--surface-raised)',
+                                    border: isActive || isDone ? 'none' : '1px solid rgba(255,255,255,0.1)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    color: '#FFF',
+                                  }}
+                                >
+                                  {isDone && <Check style={{ width: 12, height: 12, strokeWidth: 3 }} />}
+                                  {isActive && <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#FFF' }} />}
+                                </div>
+                                <span
+                                  className="font-sora"
+                                  style={{
+                                    fontSize: '0.8rem',
+                                    fontWeight: isActive ? 700 : 500,
+                                    color: isActive ? 'var(--accent-orange)' : isDone ? 'var(--text-primary)' : 'var(--text-secondary)',
+                                  }}
+                                >
+                                  {step.label}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {/* Items row list */}
+                      <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 12 }}>
+                        <h4 style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: 6, fontWeight: 700 }}>
+                          Items
+                        </h4>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                          {ticket.items.map((i, index) => (
+                            <div key={index} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: 'var(--text-primary)' }}>
+                              <span>{i.qty}x {i.name}</span>
+                              <span className="font-sora" style={{ fontWeight: 600 }}>₹{(i.price * i.qty).toFixed(2)}</span>
+                            </div>
+                          ))}
+                        </div>
+                        {ticket.specialInstructions && (
+                          <p style={{ marginTop: 8, fontSize: '0.75rem', color: 'var(--accent-orange)', background: 'rgba(255,138,52,0.06)', padding: '6px 10px', borderRadius: 8 }}>
+                            Dietary request: {ticket.specialInstructions}
+                          </p>
+                        )}
                       </div>
-                    ))}
-                  </div>
-                </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -1176,7 +1217,7 @@ export const CustomerView: React.FC<CustomerViewProps> = ({ onOpenCart, onOpenOr
           {[
             { key: 'menu', label: 'Menu', icon: Utensils },
             { key: 'cart', label: 'Cart', icon: ShoppingBag, badge: totalCartQty },
-            { key: 'status', label: 'Status', icon: Clock, badge: activeOrderForTable ? 1 : 0 },
+            { key: 'status', label: 'Status', icon: Clock, badge: activeOrdersCount },
             { key: 'games', label: 'Games', icon: Gift },
           ].map((nav) => {
             const Icon = nav.icon;
