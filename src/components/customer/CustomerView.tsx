@@ -94,6 +94,14 @@ export const CustomerView: React.FC<CustomerViewProps> = ({ onOpenCart, onOpenOr
   const allDishesSectionRef = useRef<HTMLDivElement>(null);
   const popularScroll = useDragScroll();
   
+  // Filter panel state
+  const [showFilterPanel, setShowFilterPanel] = useState(false);
+  const [vegFilter, setVegFilter] = useState<'all' | 'veg' | 'non-veg'>('all');
+
+  // Allergen / dietary preferences
+  const [allergenNote, setAllergenNote] = useState(() => localStorage.getItem('savour_allergen_note') || '');
+  const [showAllergenEditor, setShowAllergenEditor] = useState(false);
+  
   // Cart form state
   const [couponCode, setCouponCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState('');
@@ -122,13 +130,21 @@ export const CustomerView: React.FC<CustomerViewProps> = ({ onOpenCart, onOpenOr
     return menuItems.filter((item) => {
       const cat = item.categoryName || (item as any).category;
       if (selectedCategory !== 'All' && cat !== selectedCategory) return false;
+      // Veg filter toggle
+      if (vegFilter === 'veg' && !item.is_veg) return false;
+      if (vegFilter === 'non-veg' && item.is_veg) return false;
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
+        // Allow searching "veg" or "vegetarian" as a keyword
+        const isVegSearch = q === 'veg' || q === 'vegetarian';
+        const isNonVegSearch = q === 'non veg' || q === 'non-veg' || q === 'nonveg';
+        if (isVegSearch) return item.is_veg === true;
+        if (isNonVegSearch) return item.is_veg === false;
         return item.name.toLowerCase().includes(q) || item.description.toLowerCase().includes(q);
       }
       return true;
     });
-  }, [menuItems, selectedCategory, searchQuery]);
+  }, [menuItems, selectedCategory, searchQuery, vegFilter]);
 
   const popularDishes = useMemo(() => {
     return menuItems.filter((item) => item.is_bestseller || (item.rating && item.rating >= 4.8)).slice(0, 5);
@@ -178,7 +194,8 @@ export const CustomerView: React.FC<CustomerViewProps> = ({ onOpenCart, onOpenOr
     setIsSubmitting(true);
 
     try {
-      placeOrder('', appliedCoupon || undefined, tipAmount);
+      // Include allergen note as special instructions
+      placeOrder(allergenNote || '', appliedCoupon || undefined, tipAmount);
       setActiveTab('status');
     } catch (err: any) {
       addToast("Couldn't reach kitchen", err.message || 'Please try again', 'warning');
@@ -384,15 +401,15 @@ export const CustomerView: React.FC<CustomerViewProps> = ({ onOpenCart, onOpenOr
         {/* -------------------- MAIN MENU TAB -------------------- */}
         {activeTab === 'menu' && (
           <>
-            {/* Search Bar */}
-            <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
+            {/* Search Bar + Filter Button */}
+            <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
               <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center' }}>
                 <Search style={{ position: 'absolute', left: 14, width: 18, height: 18, color: 'var(--text-secondary)' }} />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search your favorite food"
+                  placeholder="Search food, or type 'veg'..."
                   style={{
                     width: '100%',
                     height: 48,
@@ -406,10 +423,116 @@ export const CustomerView: React.FC<CustomerViewProps> = ({ onOpenCart, onOpenOr
                   }}
                 />
               </div>
-              <button style={{ width: 48, height: 48, borderRadius: 'var(--radius-card)', background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-                <SlidersHorizontal style={{ width: 18, height: 18, color: 'var(--text-primary)' }} />
+              <button
+                onClick={() => setShowFilterPanel(!showFilterPanel)}
+                style={{
+                  width: 48, height: 48,
+                  borderRadius: 'var(--radius-card)',
+                  background: showFilterPanel || vegFilter !== 'all' ? 'var(--accent-orange)' : 'var(--surface)',
+                  border: `1px solid ${showFilterPanel || vegFilter !== 'all' ? 'var(--accent-orange)' : 'rgba(255,255,255,0.08)'}`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  cursor: 'pointer', transition: 'all 0.2s',
+                  position: 'relative',
+                }}
+              >
+                <SlidersHorizontal style={{ width: 18, height: 18, color: showFilterPanel || vegFilter !== 'all' ? '#FFF' : 'var(--text-primary)' }} />
+                {vegFilter !== 'all' && (
+                  <span style={{
+                    position: 'absolute', top: -4, right: -4,
+                    width: 10, height: 10, borderRadius: '50%',
+                    background: '#34D399', border: '2px solid var(--bg-base)',
+                  }} />
+                )}
               </button>
             </div>
+
+            {/* Filter Panel */}
+            {showFilterPanel && (
+              <div style={{
+                background: 'var(--surface)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                borderRadius: 'var(--radius-card)',
+                padding: '14px 16px',
+                marginBottom: 14,
+                display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+              }}>
+                <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Diet:</span>
+                {([['all', '🍽️ All'], ['veg', '🥗 Veg Only'], ['non-veg', '🍖 Non-Veg Only']] as const).map(([val, label]) => (
+                  <button
+                    key={val}
+                    onClick={() => setVegFilter(val)}
+                    style={{
+                      padding: '7px 14px', borderRadius: 999, fontSize: '0.8rem', fontWeight: 600,
+                      border: `1px solid ${vegFilter === val ? 'var(--accent-orange)' : 'rgba(255,255,255,0.1)'}`,
+                      background: vegFilter === val ? 'rgba(255,138,52,0.15)' : 'transparent',
+                      color: vegFilter === val ? 'var(--accent-orange)' : 'var(--text-secondary)',
+                      cursor: 'pointer', transition: 'all 0.15s',
+                    }}
+                  >{label}</button>
+                ))}
+              </div>
+            )}
+
+            {/* Allergen / Dietary Preference Banner */}
+            <div style={{
+              background: allergenNote ? 'rgba(255,138,52,0.08)' : 'rgba(255,255,255,0.03)',
+              border: `1px solid ${allergenNote ? 'rgba(255,138,52,0.3)' : 'rgba(255,255,255,0.07)'}`,
+              borderRadius: 12, padding: '10px 14px',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              marginBottom: 14, cursor: 'pointer', gap: 10,
+            }} onClick={() => setShowAllergenEditor(!showAllergenEditor)}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: '1rem' }}>⚠️</span>
+                <div>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 700, color: allergenNote ? 'var(--accent-orange)' : 'var(--text-secondary)' }}>
+                    {allergenNote ? 'Dietary Note Active' : 'Add Dietary / Allergy Note'}
+                  </span>
+                  {allergenNote && (
+                    <p style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', margin: '2px 0 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 220 }}>
+                      {allergenNote}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', flexShrink: 0 }}>{showAllergenEditor ? 'Close ▲' : 'Edit ▼'}</span>
+            </div>
+
+            {showAllergenEditor && (
+              <div style={{ marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <textarea
+                  value={allergenNote}
+                  onChange={(e) => {
+                    setAllergenNote(e.target.value);
+                    localStorage.setItem('savour_allergen_note', e.target.value);
+                  }}
+                  placeholder="e.g. Allergic to onions and peanuts. Please do not add them to any dish."
+                  rows={3}
+                  style={{
+                    width: '100%', padding: '12px 14px',
+                    borderRadius: 12,
+                    background: 'var(--surface)',
+                    border: '1px solid rgba(255,138,52,0.3)',
+                    color: 'var(--text-primary)',
+                    fontSize: '0.875rem',
+                    outline: 'none', resize: 'none',
+                  }}
+                />
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    onClick={() => {
+                      setAllergenNote('');
+                      localStorage.removeItem('savour_allergen_note');
+                      setShowAllergenEditor(false);
+                    }}
+                    style={{ flex: 1, padding: '8px', borderRadius: 8, background: 'none', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--text-secondary)', fontSize: '0.8rem', cursor: 'pointer' }}
+                  >Clear</button>
+                  <button
+                    onClick={() => setShowAllergenEditor(false)}
+                    style={{ flex: 2, padding: '8px', borderRadius: 8, background: 'var(--accent-orange)', border: 'none', color: '#FFF', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer' }}
+                  >Save Note ✓</button>
+                </div>
+              </div>
+            )}
 
             {/* Category Chips Horizontal Scroll */}
             <div className="no-scrollbar" style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 16, marginBottom: 16 }}>

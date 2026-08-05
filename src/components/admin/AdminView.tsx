@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useStore } from '../../context/StoreContext';
-import { IndianRupee, ShoppingBag, Users, QrCode, Check, Edit2, Search, TrendingUp, Plus, X } from 'lucide-react';
+import { IndianRupee, ShoppingBag, Users, QrCode, Check, Edit2, Search, TrendingUp, Plus, X, Save } from 'lucide-react';
 import { QrGeneratorModal } from './QrGeneratorModal';
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
@@ -32,7 +32,7 @@ const selectStyle: React.CSSProperties = {
 };
 
 export const AdminView: React.FC = () => {
-  const { orders, menuItems, toggleMenuItemStock, updateMenuItemPrice, tables, updateOrderStatus, addMenuItem } = useStore();
+  const { orders, menuItems, toggleMenuItemStock, updateMenuItemPrice, tables, updateOrderStatus, addMenuItem, updateMenuItem } = useStore();
 
   const [activeTab, setActiveTab] = useState<'overview' | 'orders' | 'menu' | 'tables'>('overview');
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
@@ -40,6 +40,9 @@ export const AdminView: React.FC = () => {
 
   const [editingPriceId, setEditingPriceId] = useState<string | null>(null);
   const [tempPrice, setTempPrice] = useState<number>(0);
+
+  // Full dish edit modal state
+  const [editingItem, setEditingItem] = useState<null | { id: string; name: string; categoryName: string; price: number; description: string; image_url: string; is_veg: boolean }>(null);
 
   const [isAddItemOpen, setIsAddItemOpen] = useState(false);
   const [newItemName, setNewItemName] = useState('');
@@ -461,7 +464,7 @@ export const AdminView: React.FC = () => {
                         ₹{o.total.toFixed(2)}
                       </td>
                       <td style={{ padding: '14px 16px' }}>
-                        {o.status !== 'cancelled' && (
+                        {o.status === 'placed' && (
                           <button
                             onClick={() => updateOrderStatus(o.id, 'cancelled')}
                             style={{
@@ -477,6 +480,9 @@ export const AdminView: React.FC = () => {
                           >
                             Cancel
                           </button>
+                        )}
+                        {o.status !== 'placed' && o.status !== 'cancelled' && (
+                          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>In progress</span>
                         )}
                       </td>
                     </tr>
@@ -522,7 +528,7 @@ export const AdminView: React.FC = () => {
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.875rem' }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                    {['Dish', 'Category', 'Price (₹)', 'Stock Status'].map((h) => (
+                    {['Dish', 'Category', 'Price (₹)', 'Stock Status', 'Actions'].map((h) => (
                       <th key={h} style={{ padding: '12px 16px', fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                         {h}
                       </th>
@@ -597,6 +603,27 @@ export const AdminView: React.FC = () => {
                           >
                             <div className="cust-toggle-thumb" />
                           </div>
+                        </td>
+                        <td style={{ padding: '12px 16px' }}>
+                          <button
+                            onClick={() => setEditingItem({
+                              id: item.id,
+                              name: item.name,
+                              categoryName: item.categoryName || (item as any).category || 'Mains',
+                              price: item.price,
+                              description: item.description,
+                              image_url: item.image_url || item.image || '',
+                              is_veg: item.is_veg,
+                            })}
+                            style={{
+                              padding: '6px 14px', borderRadius: 'var(--radius-pill)',
+                              background: 'rgba(255,138,52,0.1)', border: '1px solid rgba(255,138,52,0.3)',
+                              color: 'var(--accent-orange)', fontSize: '0.75rem', fontWeight: 600,
+                              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
+                            }}
+                          >
+                            <Edit2 style={{ width: 12, height: 12 }} /> Edit
+                          </button>
                         </td>
                       </tr>
                     );
@@ -830,6 +857,118 @@ export const AdminView: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* Full Dish Edit Modal */}
+      {editingItem && (
+        <div
+          onClick={() => setEditingItem(null)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 200,
+            background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(12px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: 16,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: '#1C1410', border: '1px solid rgba(255,255,255,0.1)',
+              borderRadius: 20, padding: 24, width: '100%', maxWidth: 440,
+              boxShadow: '0 24px 80px rgba(0,0,0,0.8)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+              <h3 className="font-sora" style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Edit Dish</h3>
+              <button onClick={() => setEditingItem(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}>
+                <X style={{ width: 20, height: 20 }} />
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div>
+                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Dish Name</label>
+                <input
+                  value={editingItem.name}
+                  onChange={(e) => setEditingItem({ ...editingItem, name: e.target.value })}
+                  style={inputStyle}
+                />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Category</label>
+                  <select
+                    value={editingItem.categoryName}
+                    onChange={(e) => setEditingItem({ ...editingItem, categoryName: e.target.value })}
+                    style={selectStyle}
+                  >
+                    {['Starters', 'Mains', 'Desserts', 'Beverages', 'Chef Specials'].map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Price (₹)</label>
+                  <input
+                    type="number"
+                    value={editingItem.price}
+                    onChange={(e) => setEditingItem({ ...editingItem, price: parseFloat(e.target.value) || 0 })}
+                    style={inputStyle}
+                  />
+                </div>
+              </div>
+              <div>
+                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Description</label>
+                <textarea
+                  value={editingItem.description}
+                  onChange={(e) => setEditingItem({ ...editingItem, description: e.target.value })}
+                  rows={3}
+                  style={{ ...inputStyle, resize: 'none' }}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Image URL</label>
+                <input
+                  value={editingItem.image_url}
+                  onChange={(e) => setEditingItem({ ...editingItem, image_url: e.target.value })}
+                  placeholder="https://..."
+                  style={inputStyle}
+                />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <label style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <input
+                    type="checkbox"
+                    checked={editingItem.is_veg}
+                    onChange={(e) => setEditingItem({ ...editingItem, is_veg: e.target.checked })}
+                  />
+                  Vegetarian (Veg)
+                </label>
+              </div>
+
+              <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
+                <button
+                  onClick={() => setEditingItem(null)}
+                  style={{ flex: 1, padding: 12, borderRadius: 'var(--radius-button)', background: 'transparent', border: '1px solid var(--border-default)', color: 'var(--text-secondary)', fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer' }}
+                >Cancel</button>
+                <button
+                  onClick={() => {
+                    updateMenuItem(editingItem.id, {
+                      name: editingItem.name,
+                      categoryName: editingItem.categoryName,
+                      price: editingItem.price,
+                      description: editingItem.description,
+                      image_url: editingItem.image_url,
+                      is_veg: editingItem.is_veg,
+                    });
+                    setEditingItem(null);
+                  }}
+                  className="font-sora"
+                  style={{ flex: 2, padding: 12, borderRadius: 'var(--radius-button)', background: 'var(--accent-orange)', border: 'none', color: '#FFF', fontSize: '0.875rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                >
+                  <Save style={{ width: 16, height: 16 }} /> Save Changes
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

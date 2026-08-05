@@ -40,6 +40,7 @@ interface StoreContextType {
   
   // Admin & Menu Actions
   addMenuItem: (item: Omit<MenuItem, 'id'>) => void;
+  updateMenuItem: (id: string, updates: Partial<MenuItem>) => void;
   toggleMenuItemStock: (id: string) => void;
   updateMenuItemPrice: (id: string, newPrice: number) => void;
   addToast: (title: string, message: string, type?: 'info' | 'success' | 'warning') => void;
@@ -396,6 +397,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     addToast('Item Added', `${newItemData.name} has been added to the menu`, 'success');
   };
 
+  const updateMenuItem = (id: string, updates: Partial<MenuItem>) => {
+    setMenuItems((prev) => {
+      const updated = prev.map((item) => (item.id === id ? { ...item, ...updates } : item));
+      broadcastSync({ type: 'MENU_UPDATE', payload: updated });
+      return updated;
+    });
+    addToast('Menu Updated', `Dish updated successfully`, 'success');
+  };
+
   return (
     <StoreContext.Provider
       value={{
@@ -420,6 +430,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         createWaiterRequest,
         resolveWaiterRequest,
         addMenuItem,
+        updateMenuItem,
         toggleMenuItemStock,
         updateMenuItemPrice,
         addToast,
