@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useStore } from '../../context/StoreContext';
-import { IndianRupee, ShoppingBag, Users, QrCode, Check, Edit2, Search, TrendingUp, Plus, X, Save } from 'lucide-react';
+import { IndianRupee, ShoppingBag, Users, QrCode, Check, Edit2, Search, TrendingUp, Plus, X, Save, Upload, Calendar } from 'lucide-react';
 import { QrGeneratorModal } from './QrGeneratorModal';
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
@@ -41,6 +41,11 @@ export const AdminView: React.FC = () => {
   const [editingPriceId, setEditingPriceId] = useState<string | null>(null);
   const [tempPrice, setTempPrice] = useState<number>(0);
 
+  // Date Range Filter State for Sales & Analytics
+  const [timeRange, setTimeRange] = useState<'today' | 'weekly' | 'monthly' | 'yearly' | 'custom'>('today');
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
+
   // Full dish edit modal state
   const [editingItem, setEditingItem] = useState<null | { id: string; name: string; categoryName: string; price: number; description: string; image_url: string; is_veg: boolean; spice_level?: 'none' | 'mild' | 'spicy' }>(null);
 
@@ -57,18 +62,55 @@ export const AdminView: React.FC = () => {
   const [tableFilter, setTableFilter]   = useState<string>('all');
   const [searchQuery, setSearchQuery]   = useState('');
 
-  const validOrders = useMemo(() => orders.filter((o) => o.status !== 'cancelled'), [orders]);
+  const analyticsOrders = useMemo(() => {
+    const now = new Date();
+    return orders.filter((o) => {
+      if (o.status === 'cancelled') return false;
+      const d = new Date(o.created_at);
+
+      if (timeRange === 'today') {
+        return (
+          d.getFullYear() === now.getFullYear() &&
+          d.getMonth() === now.getMonth() &&
+          d.getDate() === now.getDate()
+        );
+      }
+      if (timeRange === 'weekly') {
+        const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        return d >= sevenDaysAgo;
+      }
+      if (timeRange === 'monthly') {
+        return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+      }
+      if (timeRange === 'yearly') {
+        return d.getFullYear() === now.getFullYear();
+      }
+      if (timeRange === 'custom') {
+        if (customStartDate) {
+          const start = new Date(customStartDate);
+          if (d < start) return false;
+        }
+        if (customEndDate) {
+          const end = new Date(customEndDate);
+          end.setHours(23, 59, 59, 999);
+          if (d > end) return false;
+        }
+        return true;
+      }
+      return true;
+    });
+  }, [orders, timeRange, customStartDate, customEndDate]);
 
   const todayStats = useMemo(() => {
-    const todayRevenue = validOrders.reduce((sum, o) => sum + o.total, 0);
-    const todayCount   = validOrders.length;
+    const todayRevenue = analyticsOrders.reduce((sum, o) => sum + o.total, 0);
+    const todayCount   = analyticsOrders.length;
     const avgValue     = todayCount > 0 ? todayRevenue / todayCount : 0;
     return { todayRevenue, todayCount, avgValue };
-  }, [validOrders]);
+  }, [analyticsOrders]);
 
   const topSellingItems = useMemo(() => {
     const counts: Record<string, { name: string; qty: number; revenue: number }> = {};
-    validOrders.forEach((order) => {
+    analyticsOrders.forEach((order) => {
       order.items.forEach((item) => {
         if (!counts[item.name]) counts[item.name] = { name: item.name, qty: 0, revenue: 0 };
         counts[item.name].qty     += item.qty;
@@ -76,44 +118,37 @@ export const AdminView: React.FC = () => {
       });
     });
     return Object.values(counts).sort((a, b) => b.qty - a.qty).slice(0, 5);
-  }, [validOrders]);
+  }, [analyticsOrders]);
 
-  // ── REAL hourly revenue: computed from actual orders placed today ──
+  // ── REAL hourly / period revenue ──
   const revenueChartData = useMemo(() => {
     const now = new Date();
     const currentHour = now.getHours();
 
-    // Build 8 AM – 11 PM slots (hours 8 to 23)
     const HOURS = [8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23];
     const LABELS = ['8 AM','9 AM','10 AM','11 AM','12 PM','1 PM','2 PM',
                     '3 PM','4 PM','5 PM','6 PM','7 PM','8 PM','9 PM','10 PM','11 PM'];
 
-    // Accumulate real revenue per hour from valid orders placed today
     const hourlyRevenue: Record<number, number> = {};
     HOURS.forEach(h => { hourlyRevenue[h] = 0; });
 
-    validOrders.forEach(order => {
+    analyticsOrders.forEach(order => {
       const d = new Date(order.created_at);
-      // Only count orders from today
-      if (
-        d.getFullYear() === now.getFullYear() &&
-        d.getMonth()   === now.getMonth()    &&
-        d.getDate()    === now.getDate()
-      ) {
-        const h = d.getHours();
-        if (h >= 8 && h <= 23) {
-          hourlyRevenue[h] = (hourlyRevenue[h] || 0) + order.total;
-        }
+      const h = d.getHours();
+      if (h >= 8 && h <= 23) {
+        hourlyRevenue[h] = (hourlyRevenue[h] || 0) + order.total;
+      } else {
+        hourlyRevenue[12] = (hourlyRevenue[12] || 0) + order.total; // Default bucket fallback
       }
     });
 
     return HOURS.map((h, i) => ({
       time:    LABELS[i],
       revenue: Math.round(hourlyRevenue[h] * 100) / 100,
-      future:  h > currentHour,          // shade future hours differently
-      noData:  hourlyRevenue[h] === 0 && h <= currentHour, // past hours with 0 orders
+      future:  timeRange === 'today' && h > currentHour,
+      noData:  hourlyRevenue[h] === 0,
     }));
-  }, [validOrders]);
+  }, [analyticsOrders, timeRange]);
 
   const filteredOrders = useMemo(() => {
     return orders.filter((o) => {
@@ -262,6 +297,68 @@ export const AdminView: React.FC = () => {
         {/* ══════════════ TAB 1: OVERVIEW ══════════════ */}
         {activeTab === 'overview' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+
+            {/* Sales & Analytics Date Filter Bar */}
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              flexWrap: 'wrap', gap: 12, padding: '14px 18px',
+              background: 'var(--surface-raised)', borderRadius: 'var(--radius-card)',
+              border: '1px solid var(--border-subtle)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Calendar style={{ width: 18, height: 18, color: 'var(--accent-orange)' }} />
+                <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                  Analytics Period:
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                {([
+                  { key: 'today', label: 'Daily (Today)' },
+                  { key: 'weekly', label: 'Weekly (7 Days)' },
+                  { key: 'monthly', label: 'Monthly' },
+                  { key: 'yearly', label: 'Yearly' },
+                  { key: 'custom', label: 'Custom Range' },
+                ] as const).map((t) => {
+                  const isActive = timeRange === t.key;
+                  return (
+                    <button
+                      key={t.key}
+                      onClick={() => setTimeRange(t.key)}
+                      style={{
+                        padding: '6px 14px', borderRadius: 999,
+                        fontSize: '0.78rem', fontWeight: isActive ? 700 : 500,
+                        background: isActive ? 'var(--accent-orange)' : 'var(--surface)',
+                        color: isActive ? '#FFF' : 'var(--text-secondary)',
+                        border: `1px solid ${isActive ? 'var(--accent-orange)' : 'rgba(255,255,255,0.08)'}`,
+                        cursor: 'pointer', transition: 'all 0.15s'
+                      }}
+                    >
+                      {t.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {timeRange === 'custom' && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>From:</span>
+                  <input
+                    type="date"
+                    value={customStartDate}
+                    onChange={(e) => setCustomStartDate(e.target.value)}
+                    style={{ ...inputStyle, padding: '4px 10px', fontSize: '0.78rem', width: 'auto' }}
+                  />
+                  <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>To:</span>
+                  <input
+                    type="date"
+                    value={customEndDate}
+                    onChange={(e) => setCustomEndDate(e.target.value)}
+                    style={{ ...inputStyle, padding: '4px 10px', fontSize: '0.78rem', width: 'auto' }}
+                  />
+                </div>
+              )}
+            </div>
 
             {/* Metric Cards */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
@@ -820,17 +917,51 @@ export const AdminView: React.FC = () => {
                 />
               </div>
 
-              {/* Image URL */}
+              {/* Image URL & Gallery Upload */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                  Image URL (optional)
+                  Dish Photo (URL or Upload from Gallery)
                 </label>
-                <input
-                  type="url" value={newItemImage}
-                  onChange={(e) => setNewItemImage(e.target.value)}
-                  placeholder="https://images.unsplash.com/…"
-                  style={inputStyle}
-                />
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <input
+                    type="url" value={newItemImage}
+                    onChange={(e) => setNewItemImage(e.target.value)}
+                    placeholder="https://images.unsplash.com/…"
+                    style={{ ...inputStyle, flex: 1 }}
+                  />
+                  <label style={{
+                    padding: '10px 14px', borderRadius: 'var(--radius-button)',
+                    background: 'var(--accent-orange)', color: '#FFF',
+                    fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0,
+                    whiteSpace: 'nowrap', boxShadow: '0 4px 12px rgba(255,138,52,0.3)'
+                  }}>
+                    <Upload style={{ width: 14, height: 14 }} /> Gallery
+                    <input
+                      type="file"
+                      accept="image/*"
+                      style={{ display: 'none' }}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onloadend = () => {
+                            if (typeof reader.result === 'string') {
+                              setNewItemImage(reader.result);
+                            }
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+                {newItemImage && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
+                    <img src={newItemImage} alt="Preview" style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover', border: '1px solid rgba(255,255,255,0.2)' }} />
+                    <span style={{ fontSize: '0.75rem', color: '#34D399', fontWeight: 600 }}>Image Ready ✓</span>
+                  </div>
+                )}
               </div>
 
               {/* Veg Toggle & Spice Level Grid */}
@@ -962,14 +1093,49 @@ export const AdminView: React.FC = () => {
                   style={{ ...inputStyle, resize: 'none' }}
                 />
               </div>
-              <div>
-                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Image URL</label>
-                <input
-                  value={editingItem.image_url}
-                  onChange={(e) => setEditingItem({ ...editingItem, image_url: e.target.value })}
-                  placeholder="https://..."
-                  style={inputStyle}
-                />
+              {/* Image URL & Gallery Upload */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Dish Photo (URL or Upload from Gallery)</label>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <input
+                    value={editingItem.image_url}
+                    onChange={(e) => setEditingItem({ ...editingItem, image_url: e.target.value })}
+                    placeholder="https://..."
+                    style={{ ...inputStyle, flex: 1 }}
+                  />
+                  <label style={{
+                    padding: '10px 14px', borderRadius: 'var(--radius-button)',
+                    background: 'var(--accent-orange)', color: '#FFF',
+                    fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0,
+                    whiteSpace: 'nowrap', boxShadow: '0 4px 12px rgba(255,138,52,0.3)'
+                  }}>
+                    <Upload style={{ width: 14, height: 14 }} /> Gallery
+                    <input
+                      type="file"
+                      accept="image/*"
+                      style={{ display: 'none' }}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onloadend = () => {
+                            if (typeof reader.result === 'string') {
+                              setEditingItem({ ...editingItem, image_url: reader.result });
+                            }
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+                {editingItem.image_url && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
+                    <img src={editingItem.image_url} alt="Preview" style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover', border: '1px solid rgba(255,255,255,0.2)' }} />
+                    <span style={{ fontSize: '0.75rem', color: '#34D399', fontWeight: 600 }}>Image Ready ✓</span>
+                  </div>
+                )}
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, alignItems: 'center' }}>
                 <label style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, marginTop: 12 }}>
