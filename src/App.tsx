@@ -43,7 +43,7 @@ const MainAppContent: React.FC = () => {
       const params = new URLSearchParams(window.location.search);
       
       let detectedRole: RoleMode = 'customer';
-      if (path.includes('/kitchen') || hash.includes('/kitchen') || params.get('view') === 'kitchen') {
+      if (path.includes('/kitchen') || path.includes('/kds') || hash.includes('/kitchen') || hash.includes('/kds') || params.get('view') === 'kitchen' || params.get('view') === 'kds') {
         detectedRole = 'kitchen';
       } else if (path.includes('/admin') || hash.includes('/admin') || params.get('view') === 'admin') {
         detectedRole = 'admin';
