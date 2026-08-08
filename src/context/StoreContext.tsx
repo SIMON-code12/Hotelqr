@@ -117,7 +117,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     channel.onmessage = (e) => {
       const { type, payload } = e.data || {};
       if (type === 'NEW_ORDER') {
-        setOrders((prev) => [payload, ...prev]);
+        setOrders((prev) => {
+          if (prev.some((o) => o.id === payload.id)) return prev;
+          return [payload, ...prev];
+        });
         sounds.playNewOrderBell();
         setToasts((t) => [
           ...t,

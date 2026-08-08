@@ -156,12 +156,12 @@ export const CustomerView: React.FC<CustomerViewProps> = ({ onOpenCart, onOpenOr
   }, [menuItems, selectedCategory, searchQuery, vegFilter, spiceFilter]);
 
   const popularDishes = useMemo(() => {
-    return menuItems.filter((item) => item.is_bestseller || (item.rating && item.rating >= 4.8)).slice(0, 5);
-  }, [menuItems]);
+    return filteredDishes.filter((item) => item.is_bestseller || (item.rating && item.rating >= 4.8)).slice(0, 5);
+  }, [filteredDishes]);
 
   const chefSpecialDish = useMemo(() => {
-    return menuItems.find((item) => item.categoryName === 'Chef Specials') || menuItems[0];
-  }, [menuItems]);
+    return filteredDishes.find((item) => item.categoryName === 'Chef Specials') || filteredDishes[0];
+  }, [filteredDishes]);
 
   const averageRating = useMemo(() => {
     const ratedItems = menuItems.filter((i) => i.rating != null && i.rating > 0);
